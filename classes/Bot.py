@@ -327,7 +327,7 @@ class Bot:
             self.voice = await self.bot.join_voice_channel(context.message.author.voice_channel)
             self.player = self.voice.create_ffmpeg_player('./sounds/airhorns/airhorn.m4a')
             self.player.start()
-            if self.airhorn_stay_afterwards == 0:
+            if self.config.airhorn_stay_afterwards == 0:
                 time.sleep(2)
                 await self.voice.disconnect()
 

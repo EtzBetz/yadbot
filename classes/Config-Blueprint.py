@@ -1,3 +1,6 @@
+# RENAME FILE TO Config.py AFTER SETTING IT UP #
+
+
 class Config:
 
     token = ""  # token of the bot user
