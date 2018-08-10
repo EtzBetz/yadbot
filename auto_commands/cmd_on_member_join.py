@@ -1,7 +1,6 @@
 import discord
 import os
 
-import config
 
 
 async def ex(bot, member):

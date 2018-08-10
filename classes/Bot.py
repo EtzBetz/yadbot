@@ -16,9 +16,9 @@ from auto_commands import cmd_on_member_join
 class Bot:
 
 
+    config = Config.Config()
 
-
-    bot = commands.Bot(command_prefix=prefix)
+    bot = commands.Bot(command_prefix=config.prefix)
     voice = None
     player = None
     db_connection = None
@@ -31,8 +31,6 @@ class Bot:
     message1 = None
 
 
-
-
     async def print_servers(self):
         print("Bot is ready. Running on Servers: \n")
         for server in self.bot.servers:
@@ -43,13 +41,13 @@ class Bot:
         await self.bot.change_presence(game=discord.Game(name=string))
 
     def is_admin(self, user_id: str):
-        if user_id == self.admin_id:
+        if user_id == self.config.admin_id:
             return True
         else:
             return False
 
     async def get_faulty_server(self):
-        return discord.utils.get(self.bot.connection.servers, id=self.faulty_member_server_id)
+        return discord.utils.get(self.bot.connection.servers, id=self.config.faulty_member_server_id)
 
 
     async def assign_role_safe(self, member_on_server, role_on_server):
@@ -83,7 +81,7 @@ class Bot:
         faulty_members = []
         for member in faulty_server.members:
             for role in member.roles:
-                if role.id == self.faulty_member_role_id:
+                if role.id == self.config.faulty_member_role_id:
                     faulty_members.append(member)
         return faulty_members
 
@@ -93,7 +91,7 @@ class Bot:
         old_faulty_members = []
         for member in faulty_server.members:
             for role in member.roles:
-                if role.id == self.old_faulty_member_role_id:
+                if role.id == self.config.old_faulty_member_role_id:
                     old_faulty_members.append(member)
         return old_faulty_members
 
@@ -231,8 +229,8 @@ class Bot:
         faulty_server = await self.get_faulty_server()
 
         if faulty_server is not None:
-            old_faulty_member_role = discord.utils.get(faulty_server.roles, id=self.old_faulty_member_role_id)
-            faulty_member_role = discord.utils.get(faulty_server.roles, id=self.faulty_member_role_id)
+            old_faulty_member_role = discord.utils.get(faulty_server.roles, id=self.config.old_faulty_member_role_id)
+            faulty_member_role = discord.utils.get(faulty_server.roles, id=self.config.faulty_member_role_id)
             for faulty_member in faulty_members:
                 await self.assign_role_safe(faulty_member, old_faulty_member_role)
                 await self.remove_role_safe(faulty_member, faulty_member_role)
@@ -242,7 +240,7 @@ class Bot:
 
         for old_faulty_member in old_faulty_members:
             print(old_faulty_member.name)
-            await self.bot.send_message(old_faulty_member, "**Hurra, deine Schuldwoche ist vorbei!**\n\nDu kannst ab jetzt mit `" + self.prefix + "schuld ist \"<Username>\" ` den nächsten Schuldigen auswählen und anschließend mit `" + self.prefix + "schuld grund \"<Deine Begründung>\"` eine Begründung für seine Schuld angeben.\nAber pass auf, wenn du keinen Schuldigen auswählst, bist du wieder Schuld!\n\n**Beispiel**:\n`" + self.prefix + "schuld ist \"" + old_faulty_member.name + "\"`\n`" + self.prefix + "schuld grund \"" + old_faulty_member.name + " ist schuld, weil er/sie einfach zu langsam ist.\"`")  # TODO: add multiple random reasons
+            await self.bot.send_message(old_faulty_member, "**Hurra, deine Schuldwoche ist vorbei!**\n\nDu kannst ab jetzt mit `" + self.config.prefix + "schuld ist \"<Username>\" ` den nächsten Schuldigen auswählen und anschließend mit `" + self.config.prefix + "schuld grund \"<Deine Begründung>\"` eine Begründung für seine Schuld angeben.\nAber pass auf, wenn du keinen Schuldigen auswählst, bist du wieder Schuld!\n\n**Beispiel**:\n`" + self.config.prefix + "schuld ist \"" + old_faulty_member.name + "\"`\n`" + self.config.prefix + "schuld grund \"" + old_faulty_member.name + " ist schuld, weil er/sie einfach zu langsam ist.\"`")  # TODO: add multiple random reasons
 
     async def monday_fault_event(self):
         await self.wait_until_next_week()
@@ -274,7 +272,8 @@ class Bot:
 
         @self.bot.event
         async def on_member_join(member):
-            await cmd_on_member_join.ex(self.bot, member)
+            pass
+            # await cmd_on_member_join.ex(self.bot, member)
 
         @self.bot.event
         async def on_message(message):
@@ -284,12 +283,12 @@ class Bot:
 
             # custom ping/pong command, because bot checks if the message comes from a bot if used with a normal command
             if message.content == "!ping":
-                if self.ping_pong_loop == 1:
+                if self.config.ping_pong_loop == 1:
                     await self.bot.send_message(message.channel, "!pong")
                 else:
                     await self.bot.send_message(message.channel, "pong!")
             if message.content == "!pong":
-                if self.ping_pong_loop == 1:
+                if self.config.ping_pong_loop == 1:
                     await self.bot.send_message(message.channel, "!ping")
                 else:
                     await self.bot.send_message(message.channel, "ping!")
@@ -300,7 +299,7 @@ class Bot:
             self.message2 = self.message1
             self.message1 = message
             if self.message4 is not None:
-                if self.message1.author.id != self.bot_id and self.message2.author.id != self.bot_id and self.message3.author.id != self.bot_id and self.message4.author.id != self.bot_id:
+                if self.message1.author.id != self.config.bot_id and self.message2.author.id != self.config.bot_id and self.message3.author.id != self.config.bot_id and self.message4.author.id != self.config.bot_id:
                     if self.message1.content == self.message4.content:
                         if self.message1.content == self.message3.content:
                             if self.message1.content == self.message2.content:
@@ -308,7 +307,7 @@ class Bot:
 
             # custom function to react to any user why writes " owo " anywhere
             if message.content.lower().__contains__("owo"):
-                if message.author.id != self.bot_id:
+                if message.author.id != self.config.bot_id:
                     await self.bot.send_message(message.channel, "***triggered***")
 
         @self.bot.command(pass_context=True)
@@ -335,7 +334,7 @@ class Bot:
         @self.bot.group(pass_context=True)
         async def admin(context):
             """Admin commands, you need to be the owner to execute any of these."""
-            admin_user = await self.bot.get_user_info(self.admin_id)
+            admin_user = await self.bot.get_user_info(self.config.admin_id)
             if not self.is_admin(context.message.author.id):
                 await self.bot.send_message(context.message.channel, embed=discord.Embed(color=discord.Color.red(), description="You are not " + admin_user.name + ", sorry!"))
             else:
@@ -346,12 +345,17 @@ class Bot:
         async def toggle(context, variable: str):
             """Toggle any of the on/off attributes of this bot."""
             if self.is_admin(context.message.author.id):
-                if hasattr(self, variable):
-                    if getattr(self, variable) == 0:
-                        setattr(self, variable, 1)
-                    elif getattr(self, variable) == 1:
-                        setattr(self, variable, 0)
-                    await self.bot.say(embed=discord.Embed(color=discord.Color.green(), description="**`" + variable + "`** set to **`" + str(getattr(self, variable)) + "`**."))
+                if hasattr(self.config, variable):
+                    if getattr(self.config, variable) == 0:
+                        setattr(self.config, variable, 1)
+                        await self.bot.say(embed=discord.Embed(color=discord.Color.green(), description="**`" + variable + "`** set to **`" + str(getattr(self.config, variable)) + "`**."))
+                    elif getattr(self.config, variable) == 1:
+                        setattr(self.config, variable, 0)
+                        await self.bot.say(embed=discord.Embed(color=discord.Color.green(), description="**`" + variable + "`** set to **`" + str(getattr(self.config, variable)) + "`**."))
+                    else:
+                        await self.bot.say(embed=discord.Embed(color=discord.Color.red(), description="**`" + variable + "`** is not toggleable, as it is not `0` or `1`!"))
+                else:
+                    await self.bot.say(embed=discord.Embed(color=discord.Color.red(), description="There is no variable called **`" + variable + "`**!"))
 
         @admin.command(pass_context=True)
         async def say(context, channel, text: str):
@@ -386,7 +390,7 @@ class Bot:
 
             is_faulty_user = False
             for role in old_faulty_user_on_server.roles:
-                if role.id == self.old_faulty_member_role_id:
+                if role.id == self.config.old_faulty_member_role_id:
                     is_faulty_user = True
                     break
             if is_faulty_user:
@@ -415,13 +419,13 @@ class Bot:
         @schuld.command(pass_context=True)
         async def grund(context, faulty_reason: str):
             """Used to give the reason for why the selected [iQ] Member is responsible for this weeks fails"""
-            faulty_server = discord.utils.get(self.bot.servers, id=self.faulty_member_server_id)
+            faulty_server = discord.utils.get(self.bot.servers, id=self.config.faulty_member_server_id)
 
             old_faulty_user_on_server = discord.utils.get(faulty_server.members, id=context.message.author.id)
 
             is_faulty_user = False
             for role in old_faulty_user_on_server.roles:
-                if role.id == self.old_faulty_member_role_id:
+                if role.id == self.config.old_faulty_member_role_id:
                     is_faulty_user = True
                     break
             if is_faulty_user:
@@ -448,12 +452,12 @@ class Bot:
         @confirm.command(pass_context=True)
         async def user(context, new_faulty_user_name: str):
             """Confirm the proposed responsible member of a specific user for the current week."""
-            faulty_server = discord.utils.get(self.bot.servers, id=self.faulty_member_server_id)
+            faulty_server = discord.utils.get(self.bot.servers, id=self.config.faulty_member_server_id)
 
             iq_admin = discord.utils.get(faulty_server.members, id=context.message.author.id)
             new_faulty_user_on_server = discord.utils.get(faulty_server.members, name=new_faulty_user_name)
 
-            if self.iq_leaders_id.__contains__(iq_admin.id):
+            if self.config.iq_leaders_id.__contains__(iq_admin.id):
                 now = datetime.datetime.now()
                 iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
                 if await self.db_connection.isUserEnteredInWeek(str(iso_date[0]), str(iso_date[1]), new_faulty_user_on_server.id):
@@ -467,12 +471,12 @@ class Bot:
         @confirm.command(pass_context=True)
         async def grund(context, owner_user_name: str):
             """Confirm the proposed reason of a specific user for the current week."""
-            faulty_server = discord.utils.get(self.bot.servers, id=self.faulty_member_server_id)
+            faulty_server = discord.utils.get(self.bot.servers, id=self.config.faulty_member_server_id)
 
             iq_admin = discord.utils.get(faulty_server.members, id=context.message.author.id)
             owner_user_on_server = discord.utils.get(faulty_server.members, name=owner_user_name)
 
-            if self.iq_leaders_id.__contains__(iq_admin.id):
+            if self.config.iq_leaders_id.__contains__(iq_admin.id):
                 now = datetime.datetime.now()
                 iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
                 if await self.db_connection.userEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), owner_user_on_server.id):
@@ -483,4 +487,4 @@ class Bot:
             else:
                 await self.bot.say("Nur die [iQ]-Leader können diesen Befehl benutzen!")
 
-        self.bot.run(self.token)
+        self.bot.run(self.config.token)
