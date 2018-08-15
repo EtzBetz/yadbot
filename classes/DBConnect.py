@@ -1,9 +1,8 @@
 import asyncpg
+from classes import Config
 
 
 class DBConnect:
-
-    db_credentials = {"user": "raphael", "password": "", "database": "discord_iq", "host": "127.0.0.1", "port": "5432"}
 
     # Here will the instance be stored.
     __instance = None
@@ -24,7 +23,7 @@ class DBConnect:
             DBConnect.__instance = self
 
     async def setUp(self):
-        self.connection = await asyncpg.create_pool(**self.db_credentials)
+        self.connection = await asyncpg.create_pool(**Config.Config.db_credentials)
 
 
     async def insertFaultyUser(self, year: str, week: str, owner_user_id: int, faulty_user_id: int):
@@ -44,22 +43,22 @@ class DBConnect:
 
 
     async def getAWeeksFaultyUsersFromUser(self, year: str, week: str, owner_user_id: int):
-        query = "SELECT faulty_user.id, faulty_user.faulty_user_id, faulty_user.final, faulty_user.accepted FROM public.faulty_user WHERE faulty_user.owner_user_id = " + str(owner_user_id) + " AND faulty_user.year = " + year + " AND faulty_user.week = " + week + " ORDER BY faulty_user.id ASC"
+        query = "SELECT faulty_user.id, faulty_user.faulty_user_id, faulty_user.rejected, faulty_user.accepted FROM public.faulty_user WHERE faulty_user.owner_user_id = " + str(owner_user_id) + " AND faulty_user.year = " + year + " AND faulty_user.week = " + week + " ORDER BY faulty_user.id ASC"
         data = await self.connection.fetch(query)
         return data
 
     async def getAWeeksFaultyReasonsFromUser(self, year: str, week: str, owner_user_id: int):
-        query = "SELECT faulty_reason.id, faulty_reason.reason, faulty_reason.final, faulty_reason.accepted FROM public.faulty_reason WHERE faulty_reason.owner_user_id = " + str(owner_user_id) + " AND faulty_reason.year = " + year + " AND faulty_reason.week = " + week + " ORDER BY faulty_reason.id ASC"
+        query = "SELECT faulty_reason.id, faulty_reason.reason, faulty_reason.rejected, faulty_reason.accepted FROM public.faulty_reason WHERE faulty_reason.owner_user_id = " + str(owner_user_id) + " AND faulty_reason.year = " + year + " AND faulty_reason.week = " + week + " ORDER BY faulty_reason.id ASC"
         data = await self.connection.fetch(query)
         return data
 
     async def getAWeeksFaultyUsers(self, year: str, week: str):
-        query = "SELECT faulty_user.id, faulty_user.faulty_user_id, faulty_user.final, faulty_user.accepted, faulty_user.owner_user_id FROM public.faulty_user WHERE faulty_user.year = " + year + " AND faulty_user.week = " + week + " ORDER BY faulty_user.id ASC"
+        query = "SELECT faulty_user.id, faulty_user.faulty_user_id, faulty_user.rejected, faulty_user.accepted, faulty_user.owner_user_id FROM public.faulty_user WHERE faulty_user.year = " + year + " AND faulty_user.week = " + week + " ORDER BY faulty_user.id ASC"
         data = await self.connection.fetch(query)
         return data
 
     async def getAWeeksFaultyReasons(self, year: str, week: str):
-        query = "SELECT faulty_reason.id, faulty_reason.reason, faulty_reason.final, faulty_reason.accepted, faulty_reason.owner_user_id FROM public.faulty_reason WHERE faulty_reason.year = " + year + " AND faulty_reason.week = " + week + " ORDER BY faulty_reason.id ASC"
+        query = "SELECT faulty_reason.id, faulty_reason.reason, faulty_reason.rejected, faulty_reason.accepted, faulty_reason.owner_user_id FROM public.faulty_reason WHERE faulty_reason.year = " + year + " AND faulty_reason.week = " + week + " ORDER BY faulty_reason.id ASC"
         data = await self.connection.fetch(query)
         return data
 
@@ -113,7 +112,7 @@ class DBConnect:
         return len(data) >= 1
 
     async def isOneReasonAcceptedInWeek(self, year: str, week: str):
-        query = "SELECT faulty_reason.id, faulty_reason.faulty_user_id, faulty_reason.owner_user_id, faulty_reason.accepted FROM public.faulty_reason WHERE faulty_reason.year = " + year + " AND faulty_reason.week = " + week + " AND faulty_reason.accepted is TRUE ORDER BY faulty_reason.id ASC"
+        query = "SELECT faulty_reason.id, faulty_reason.reason, faulty_reason.owner_user_id, faulty_reason.accepted FROM public.faulty_reason WHERE faulty_reason.year = " + year + " AND faulty_reason.week = " + week + " AND faulty_reason.accepted is TRUE ORDER BY faulty_reason.id ASC"
         data = await self.connection.fetch(query)
         return len(data) >= 1
     

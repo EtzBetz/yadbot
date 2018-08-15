@@ -1,8 +1,15 @@
-# RENAME FILE TO Config.py AFTER SETTING IT UP #
+# RENAME FILE TO "Config.py" AFTER SETTING IT UP #
 class Config:
 
     token = ""  # token of the bot user
     prefix = "!"  # prefix for the bot to react to
+    db_credentials = {  # credentials for the database
+        "user": "",
+        "password": "",
+        "database": "",
+        "host": "",
+        "port": ""
+    }
 
     new_user_guild_id = 133333333333333337  # the server id on which it will assign new users a specific role
     new_user_role_id = 133333333333333337  # the role id which will be assigned to new users on the specified server
