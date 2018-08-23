@@ -540,7 +540,7 @@ class Bot:
                 else:
                     raise ValueError("Values not between or equal to 0 and 255")
             except ValueError:
-                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**Deine Farbeingabe war falsch!*\n"
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**Deine Farbeingabe war falsch!**\n"
                                                                                                                   "Gebe jeweils einen Wert von 0 bis 255 für **Rot**, **Grün** und **Blau** ein.\n"
                                                                                                                   "\n"
                                                                                                                   "Hilfe: https://www.google.de/search?&q=color+picker\n"
