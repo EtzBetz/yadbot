@@ -4,9 +4,10 @@ import datetime
 import os
 import asyncio
 import asyncpg
+from pprint import pprint
+from random import randint
 
-from classes import DBConnect
-from classes import Config
+from classes import DBConnect, Config, Player
 
 from discord.ext import commands
 
@@ -15,6 +16,9 @@ from auto_commands import cmd_on_member_join
 
 class Bot:
 
+    # Here will the instance be stored.
+    __instance = None
+    connection = None
 
     config = Config.Config()
 
@@ -67,73 +71,80 @@ class Bot:
                 if removed:
                     role_removed = True
 
+    async def get_guild_from_id(self, guild_id):
+        return discord.utils.get(self.bot.guilds, id=guild_id)
 
-    async def get_faulty_guild(self):
-        return discord.utils.get(self.bot.guilds, id=self.config.faulty_member_guild_id)
+    async def get_channel_from_id(self, guild_id, channel_id):
+        return discord.utils.get((await self.get_guild_from_id(guild_id)).channels, id=channel_id)
 
-    async def get_commands_channel(self):
-        return discord.utils.get((await self.get_faulty_guild()).channels, id=self.config.faulty_commands_channel_id)
+    async def get_guilty_players(self):
+        guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
 
-    async def get_faulty_members(self):
-        faulty_guild = await self.get_faulty_guild()
-
-        faulty_members = []
-        for member in faulty_guild.members:
+        guilty_players = []
+        for member in guilty_guild.members:
             for role in member.roles:
-                if role.id == self.config.faulty_member_role_id:
-                    faulty_members.append(member)
-        return faulty_members
+                if role.id == self.config.guilty_member_role_id:
+                    player = Player.Player(discord_user_id=member.id)
+                    await player.fill_object_from_db()
+                    guilty_players.append(player)
+        return guilty_players
 
-    async def get_old_faulty_members(self):
-        faulty_guild = await self.get_faulty_guild()
+    async def get_old_guilty_players(self):
+        guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
 
-        old_faulty_members = []
-        for member in faulty_guild.members:
+        old_guilty_players = []
+        for member in guilty_guild.members:
             for role in member.roles:
-                if role.id == self.config.old_faulty_member_role_id:
-                    old_faulty_members.append(member)
-        return old_faulty_members
+                if role.id == self.config.old_guilty_member_role_id:
+                    player = Player.Player(discord_user_id=member.id)
+                    await player.fill_object_from_db()
+                    old_guilty_players.append(player)
+        return old_guilty_players
 
-    async def get_faulty_embed(self, year, week, user_id):
+    async def get_guilty_embed(self, year, week, user_id=None, description=""):
         year = str(year)
         week = str(week)
-        faulty_guild = await self.get_faulty_guild()
 
-        faulty_member_list_string = ""
+        pre_string = "```diff\n"
+        post_string = "```"
+
+        guilty_member_list_string = ""
         if user_id is not None:
-            faulty_member_data = await self.db_connection.getAWeeksFaultyUsersFromUser(year, week, user_id)
+            guilty_member_data = await self.db_connection.getAWeeksGuiltyUsersFromUser(year, week, user_id)
         else:
-            faulty_member_data = await self.db_connection.getAWeeksFaultyUsers(year, week)
-        for index, row in enumerate(faulty_member_data):
+            guilty_member_data = await self.db_connection.getAWeeksGuiltyUsers(year, week)
+        for row in guilty_member_data:
             prefix = " "
             if row[3]:
                 prefix = "+"
-            user = discord.utils.get(faulty_guild.members, id=row[1])
-
-            faulty_member_list_string += "\n" + prefix + user.name
+            elif row[2]:
+                prefix = "-"
+            user = await self.db_connection.getPlayerData(id=row[1])
+            guilty_member_list_string += "\n" + prefix + user[0][1]
 
             if user_id is None:
-                owner = discord.utils.get(faulty_guild.members, id=row[4])
-                faulty_member_list_string += "  ⬅️" + owner.name
+                owner = await self.db_connection.getPlayerData(id=row[4])
+                guilty_member_list_string += "  ⬅️" + owner[0][1]
 
-        faulty_reason_list_string = ""
+        guilty_reason_list_string = ""
         if user_id is not None:
-            faulty_reason_data = await self.db_connection.getAWeeksFaultyReasonsFromUser(year, week, user_id)
+            guilty_reason_data = await self.db_connection.getAWeeksGuiltyReasonsFromUser(year, week, user_id)
         else:
-            faulty_reason_data = await self.db_connection.getAWeeksFaultyReasons(year, week)
-        for index, row in enumerate(faulty_reason_data):
+            guilty_reason_data = await self.db_connection.getAWeeksGuiltyReasons(year, week)
+        for row in guilty_reason_data:
             prefix = " "
             if row[3]:
                 prefix = "+"
+            elif row[2]:
+                prefix = "-"
 
-            faulty_reason_list_string += "\n" + prefix + row[1]
+            guilty_reason_list_string += "\n" + prefix + row[1]
 
             if user_id is None:
-                owner = discord.utils.get(faulty_guild.members, id=row[4])
-                faulty_reason_list_string += "  ⬅️" + owner.name
+                owner = await self.db_connection.getPlayerData(id=row[4])
+                guilty_reason_list_string += "  ⬅️" + owner[0][1]
 
-
-        embed_description = "Einträge müssen von den Leadern bestätigt werden, danach werden sie grün."
+        embed_description = description
 
         if user_id is None:
             field_reasons_title = "Gründe:"
@@ -141,26 +152,48 @@ class Bot:
             field_reasons_title = "Grund:"
 
 
-        if faulty_member_list_string == "":
-            faulty_member_list_string = "\n KEINE SCHULDIGEN EINGETRAGEN"
-        if faulty_reason_list_string == "":
-            faulty_reason_list_string = "\n KEINE SCHULDGRÜNDE EINGETRAGEN"
+        if guilty_member_list_string == "":
+            guilty_member_list_string = "\n KEINE SCHULDIGEN EINGETRAGEN"
+        if guilty_reason_list_string == "":
+            guilty_reason_list_string = "\n KEINE SCHULDGRÜNDE EINGETRAGEN"
 
-        embed = discord.Embed(title="Das Schuldspiel, Woche " + week, description=embed_description, color=0xFFCC00)
-        embed.add_field(name="Schuldige:", value="```diff" + faulty_member_list_string + "```", inline=False)
-        embed.add_field(name=field_reasons_title, value="```diff" + faulty_reason_list_string + "```", inline=False)
+        guilty_reason_list_array = []
+        for i in range((len(guilty_reason_list_string) // (1024 - (len(pre_string)+len(post_string)))) + 1):
+            guilty_reason_list_array.append(guilty_reason_list_string[(1024 - (len(pre_string)+len(post_string))) * i:(1024 - (len(pre_string)+len(post_string))) * (i + 1)])
+
+        embed = discord.Embed(title="Das Schuldspiel " + year + ", Woche " + week, description=embed_description, color=0xFFCC00)
+        embed.add_field(name="Schuldige:", value=pre_string + guilty_member_list_string + post_string, inline=False)
+        for guilty_reason_string in guilty_reason_list_array:
+            embed.add_field(name=field_reasons_title, value=pre_string + guilty_reason_string + post_string, inline=False)
         if await self.db_connection.isWeekFinalized(year, week):
             embed.set_footer(text="Die Schuldigen wurden für diese Woche festgelegt.")
 
         return embed
 
+    async def get_player_missing_in_db_embed(self, context, member):
+        embed_string = ""
+        embed_string += "**Support:** *YAD__PLAYER_MISSING_IN_DB*\n\n"
+        embed_string += "From: " + context.message.author.mention + "\n"
+        embed_string += "User: " + member.mention + ", ID: ``" + str(member.id) + "``\n"
+        embed_string += "Channel: "
+        if context.message.guild is None:  # If message was sent not in a guild
+            embed_string += "DM\n"
+        else:
+            embed_string += context.message.channel.mention + "\n"
+        embed_string += "Time: " + context.message.created_at.strftime("%H:%M:%S %d.%m.%Y") + "\n"
+        embed_string += "Link: " + context.message.jump_url + "\n"  # TODO: Use link markdown when it is fixed: https://trello.com/c/WD5FyVBu/2124-jump-urls-dont-work-if-masked
+        embed_string += "Message: \"" + context.message.content + "\""
+        return discord.Embed(color=discord.Color.gold(), description=embed_string)
 
-    async def emoji_mention(self, guild_id: int, emoji, reference_type="id"):
-        guild = await self.get_faulty_guild()
-        if reference_type == "id":
-            emoji = discord.utils.get(guild.emojis, id=emoji)
-        elif reference_type == "name":
-            emoji = discord.utils.get(guild.emojis, name=emoji)
+
+    async def emoji_mention(self, guild_id: int, id=None, name=None):
+        guild = await self.get_guild_from_id(guild_id)
+        if id is not None:
+            emoji = discord.utils.get(guild.emojis, id=id)
+        elif id is None and name is not None:
+            emoji = discord.utils.get(guild.emojis, name=name)
+        else:
+            raise TypeError("Either of parameters \"id\" or \"name\" need to be given.")
         if emoji is not None:
             return "<:" + emoji.name + ":" + str(emoji.id) + ">"
 
@@ -208,7 +241,7 @@ class Bot:
 
     async def wait_until_next_day(self):
         now = datetime.datetime.now()
-        next_weekday_date = datetime.datetime(now.year, now.month, now.day, 0, 0, 1, 0) + datetime.timedelta(days=offset_days)
+        next_weekday_date = datetime.datetime(now.year, now.month, now.day, 0, 0, 1, 0)
         difference = next_weekday_date - now
         await asyncio.sleep((difference.days * 24 * 60 * 60) + difference.seconds)
 
@@ -234,97 +267,210 @@ class Bot:
         difference = next_year_date - now
         await asyncio.sleep((difference.days*24*60*60)+difference.seconds)
 
+    async def refresh_guilty_members(self):
+        guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
+        guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.guilty_member_role_id)
+        now = datetime.datetime.now()
+        iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
 
-    async def remove_old_faulty_members(self):
-        old_faulty_members = await self.get_old_faulty_members()
-        faulty_guild = await self.get_faulty_guild()
-
-        if faulty_guild is not None:
-            old_faulty_member_role = discord.utils.get(faulty_guild.roles, id=self.config.old_faulty_member_role_id)
-            for old_faulty_member in old_faulty_members:
-                await self.remove_role_safe(old_faulty_member, old_faulty_member_role)
-
-    async def set_current_faulty_members_to_old_faulty_members(self):
-        faulty_members = await self.get_faulty_members()
-        faulty_guild = await self.get_faulty_guild()
-
-        if faulty_guild is not None:
-            old_faulty_member_role = discord.utils.get(faulty_guild.roles, id=self.config.old_faulty_member_role_id)
-            faulty_member_role = discord.utils.get(faulty_guild.roles, id=self.config.faulty_member_role_id)
-            for faulty_member in faulty_members:
-                await self.assign_role_safe(faulty_member, old_faulty_member_role)
-                await self.remove_role_safe(faulty_member, faulty_member_role)
-
-    async def send_fault_message_to_old_faulty_members(self):
-        old_faulty_members = await self.get_old_faulty_members()
-
-        for old_faulty_member in old_faulty_members:
-            print(old_faulty_member.name)
-            await old_faulty_member.send("**Hurra, deine Schuldwoche ist vorbei!**\n"
-                                            "\n"
-                                            "Du kannst ab jetzt mit `" + self.config.prefix + "schuld ist \"Nutzername\" ` oder in " + (await self.get_commands_channel()).mention + " mit `" + self.config.prefix + "schuld ist @Nutzername` den nächsten Schuldigen auswählen.\n"
-                                            "Anschließend musst du noch mit `" + self.config.prefix + "schuld grund \"Deine Begründung\"` eine Begründung für seine Schuld angeben.\n"
-                                            "Aber pass auf, wenn du nicht rechtzeitig einen Schuldigen auswählst, bist du wieder Schuld!\n"
-                                            "\n"
-                                            "**Beispiel**:\n"
-                                            "`" + self.config.prefix + "schuld ist \"" + old_faulty_member.name + "\"` **(hier)**\n"
-                                            "`" + self.config.prefix + "schuld ist ` " + old_faulty_member.mention + "  **(in " + (await self.get_commands_channel()).mention + ")**\n"
-                                            "`" + self.config.prefix + "schuld grund \"" + old_faulty_member.name + " ist schuld, weil er/sie einfach zu langsam ist.\"`")  # TODO: add multiple random reasons
-
-    async def send_reminder_message_to_old_faulty_members(self):
-        old_faulty_members = await self.get_old_faulty_members()
-
-        for old_faulty_member in old_faulty_members:
-            print(old_faulty_member.name)
-            await old_faulty_member.send("Hier ist eine freundliche Erinnerung, dass du noch einen Schuldigen festlegen musst. " + await self.emoji_mention(self.config.faulty_member_guild_id, "quagganthinking", "name"))
+        data = await self.db_connection.getAWeeksConfirmedGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
+        new_guilty_players = []
+        for player_data in data:
+            player = Player.Player(id=player_data['guilty_user_id'])
+            await player.fill_object_from_db()
+            new_guilty_players.append(player)
+            player_member = discord.utils.get(guilty_guild.members, id=player.discord_user_id)
+            await self.assign_role_safe(player_member, guilty_member_role)
 
 
-    async def new_week_fault_event(self):
+        if guilty_guild is not None:
+            old_guilty_member_role = discord.utils.get(faulty_guild.roles, id=self.config.old_guilty_member_role_id)
+            for old_guilty_member in old_guilty_players:
+                await self.remove_role_safe(old_guilty_member, old_guilty_member_role)
+
+        if guilty_guild is not None:
+            old_guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.old_guilty_member_role_id)
+            for old_guilty_player in old_guilty_players:
+                old_guilty_member = discord.utils.get(guilty_guild.members, id=old_guilty_player.discord_user_id)
+                await self.remove_role_safe(old_guilty_member, old_guilty_member_role)
+
+    async def set_current_guilty_members_to_old_guilty_members(self):
+        guilty_players = await self.get_guilty_players()
+        guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
+
+        if guilty_guild is not None:
+            old_guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.old_guilty_member_role_id)
+            guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.guilty_member_role_id)
+            for guilty_player in guilty_players:
+                guilty_member = discord.utils.get(guilty_guild.members, id=guilty_player.discord_user_id)
+                await self.assign_role_safe(guilty_member, old_guilty_member_role)
+                await self.remove_role_safe(guilty_member, guilty_member_role)
+
+    async def send_guilty_message_to_old_guilty_members(self):
+        old_guilty_players = await self.get_old_guilty_players()
+        admin_player = Player.Player(discord_user_id=self.config.admin_id)
+        await admin_player.fill_object_from_db()
+
+        for old_guilty_player in old_guilty_players:
+            print("send_guilty_message_to_old_guilty_members(): " + old_guilty_player.name + ": " + old_guilty_player.discord_user_object.name)
+            await old_guilty_player.discord_user_object.send("**Hurra, deine Schuldwoche ist vorbei!**\n"
+                                                             "\n"
+                                                             "Du kannst ab jetzt mit `" + self.config.prefix + "schuld ist ...` ein oder mehrere Schuldige für diese Woche festlegen.\n"
+                                                             "Ich akzeptiere die Personen auf zwei Arten:\n"
+                                                             "Entweder du schreibst nacheinander die Namen, wie sie mit `" + self.config.prefix + "schuld member` angezeigt werden, oder du @pingst sie.\n"
+                                                             "**Pingen kannst du aber nur in " + (await self.get_channel_from_id()).mention + " bzw. dem [iQ]-Server.**\n"
+                                                             "Anschließend musst du noch mit `" + self.config.prefix + "schuld grund \"Deine Begründung\"` einen Schuldgrund angeben.\n"
+                                                             "Später werden dann die Zuständigen entscheiden, ob dein Vorschlag angenommen oder abgelehnt wird.\n"
+                                                             "\n"
+                                                             "**Beispiele**:\n"
+                                                             "`" + self.config.prefix + "schuld ist " + old_guilty_player.name + "` **(überall)**\n"
+                                                             "`" + self.config.prefix + "schuld ist " + old_guilty_player.name + " " + admin_player.name + "` **(überall)**\n"
+                                                             "`" + self.config.prefix + "schuld ist` " + old_guilty_player.discord_user_object.mention + "  **(nur in " + (await self.get_channel_from_id()).mention + ")**\n"
+                                                             "`" + self.config.prefix + "schuld ist` " + old_guilty_player.discord_user_object.mention + " `" + admin_player.name + "`  **(nur in " + (await self.get_channel_from_id()).mention + ")**\n"
+                                                             "`" + self.config.prefix + "schuld grund \"" + old_guilty_player.name + " ist schuld, weil ...\"`")
+
+    async def send_reminder_message_to_old_guilty_members(self):
+        old_guilty_players = await self.get_old_guilty_players()
+
+        for old_guilty_player in old_guilty_players:
+            print("send_reminder_message_to_old_guilty_members(): " + old_guilty_player.name + ": " + old_guilty_player.discord_user_object.name)
+            await old_guilty_player.discord_user_object.send("Hier ist eine freundliche Erinnerung, dass du noch einen/die Schuldigen festlegen musst. " + await self.emoji_mention(self.config.guilty_member_guild_id, name="quagganthinking"))
+
+    async def send_guilty_message_to_guilty_channel(self):
+        now = datetime.datetime.now()
+        iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+        news_channel = await self.get_channel_from_id(self.config.guilty_member_guild_id, self.config.guilty_news_channel_id)
+        await news_channel.send("@here Der/die Schuldige(n) für diese Woche stehen fest!", embed=await self.get_guilty_embed(str(iso_date[0]), str(iso_date[1])))
+
+    async def new_week_guilty_event(self):
         await self.wait_until_next_week()
 
-        await self.remove_old_faulty_members()
-        await self.set_current_faulty_members_to_old_faulty_members()
-        await self.send_fault_message_to_old_faulty_members()
+        await self.remove_old_guilty_members()
+        await self.set_current_guilty_members_to_old_guilty_members()
+        await self.send_guilty_message_to_old_guilty_members()
 
-        asyncio.create_task(await self.new_week_fault_event())
+        asyncio.create_task(await self.new_week_guilty_event())
 
     async def monday_reminder(self):
-        now = datetime.datetime.now()
-        iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-
         if not datetime.datetime.now().weekday == 0:
             await self.wait_until_weekday(0)
-        await self.wait_until_hour(19)
+        if not datetime.datetime.now().hour == 19:
+            await self.wait_until_hour(19)
+        if datetime.datetime.now().minute <= 5:
+            now = datetime.datetime.now()
+            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+            if not await self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
+                await self.send_reminder_message_to_old_guilty_members()
 
-        if not self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
-            await self.send_reminder_message_to_old_faulty_members()
+        asyncio.create_task(await self.monday_reminder())
 
     async def tuesday_reminder(self):
-        now = datetime.datetime.now()
-        iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-
         if not datetime.datetime.now().weekday == 1:
             await self.wait_until_weekday(1)
-        await self.wait_until_hour(19)
+        if not datetime.datetime.now().hour == 19:
+            await self.wait_until_hour(19)
+        if datetime.datetime.now().minute <= 5:
+            now = datetime.datetime.now()
+            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+            if not await self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
+                await self.send_reminder_message_to_old_guilty_members()
 
-        if not self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
-            await self.send_reminder_message_to_old_faulty_members()
+        asyncio.create_task(await self.tuesday_reminder())
 
-    async def wednesday_fault_event(self):
+    async def wednesday_reminder(self):
         if not datetime.datetime.now().weekday == 2:
             await self.wait_until_weekday(2)
-        await self.wait_until_hour(20)
+        if not datetime.datetime.now().hour == 19:
+            await self.wait_until_hour(19)
+        if datetime.datetime.now().minute <= 5:
+            now = datetime.datetime.now()
+            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+            if not await self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
+                await self.send_reminder_message_to_old_guilty_members()
+
+        asyncio.create_task(await self.wednesday_reminder())
+
+    async def thursday_guilty_event(self):
+        if not datetime.datetime.now().weekday == 3:
+            await self.wait_until_weekday(3)
+        if not datetime.datetime.now().hour == 20:
+            await self.wait_until_hour(20)
+        if datetime.datetime.now().minute <= 5:
+            now = datetime.datetime.now()
+            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+
+            if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                print("debug: not finalized")
+                if not await self.db_connection.isOneUserAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
+                    print("debug: no user got accepted")
+                    proposed_players = await self.db_connection.getAWeeksGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
+                    if len(proposed_players) == 0:
+                        print("debug: no user proposed")
+                        player_ids = await self.db_connection.getAllPlayersIds()
+                        pprint(player_ids)
+                        random_player_id = player_ids[randint(1, len(player_ids))]['id']
+
+                        pprint(random_player_id)
+                        random_player = Player.Player(random_player_id)
+                        await random_player.fill_object_from_db()
+                        await self.db_connection.insertGuiltyUser(str(iso_date[0]), str(iso_date[1]), random_player.id, random_player.id)
+                        await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), random_player.id, "Der Schuldige von letzter Woche hat leider geschlafen, jetzt ist " + random_player.name + " schuld.")
+                        await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
+                        await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
+                    else:
+                        print("debug: user proposed, not accepted")
+                        for proposed_player in proposed_players:
+                            await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['guilty_user_id'])
+                            if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id']):
+                                print("debug: user has entered reason, confirming now")
+                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id'])
+                elif not await self.db_connection.isOneReasonAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
+                    print("debug: user accepted, reason not")
+                    guilty_users_data = await self.db_connection.getAWeeksConfirmedGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
+                    for data in guilty_users_data:
+                        if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
+                            print("debug: user entered reason, didnt get confirmed, confirming now")
+                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
+                            break
+                        else:
+                            print("debug: no reason entered, creating and confirming it now")
+                            await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
+                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
+                print("debug: finalizing week")
+                await self.db_connection.insertFinalizedWeek(str(iso_date[0]), str(iso_date[1]))
+                await self.refresh_guilty_members()
+                await self.send_guilty_message_to_guilty_channel()
+
+        asyncio.create_task(await self.thursday_guilty_event())
 
 
     async def enable_timers(self):
-        print("debug: enable timers")
-        asyncio.create_task(await self.new_week_fault_event())
-        asyncio.create_task(await self.monday_reminder())
-        asyncio.create_task(await self.tuesday_reminder())
-        asyncio.create_task(await self.wednesday_fault_event())
+        print("debug: create timers")
+        asyncio.create_task(self.new_week_guilty_event())
+        asyncio.create_task(self.monday_reminder())
+        asyncio.create_task(self.tuesday_reminder())
+        asyncio.create_task(self.wednesday_reminder())
+        asyncio.create_task(self.thursday_guilty_event())
+        print("debug: timers created")
+
+    async def is_discord_id_in_db(self, discord_user_id):
+        return await self.db_connection.getPlayerData(discord_user_id=discord_user_id)
+
+
+    @staticmethod
+    async def getInstance():
+        """Static access method."""
+        if Bot.__instance is None:
+            Bot()
+        return Bot.__instance
 
 
     def __init__(self):
+
+        if Bot.__instance is not None:
+            raise Exception("This class is a singleton!")
+        else:
+            Bot.__instance = self
 
         @self.bot.event
         async def on_ready():
@@ -334,7 +480,7 @@ class Bot:
             self.db_connection = DBConnect.DBConnect()
             await self.db_connection.setUp()
 
-            await asyncio.create_task(await self.enable_timers())
+            asyncio.create_task(self.enable_timers())
 
         @self.bot.event
         async def on_member_join(member):
@@ -348,16 +494,16 @@ class Bot:
             await self.bot.process_commands(message)
 
             # custom ping/pong command, because bot checks if the message comes from a bot if used with a normal command
-            if message.content == "!ping":
+            if message.content == self.config.prefix + "ping":
                 if self.config.ping_pong_loop == 1:
-                    await message.channel.send("!pong")
+                    await message.channel.send(self.config.prefix + "pong")
                 else:
-                    await message.channel.send("pong!")
-            if message.content == "!pong":
+                    await message.channel.send("pong" + self.config.prefix)
+            if message.content == self.config.prefix + "pong":
                 if self.config.ping_pong_loop == 1:
-                    await message.channel.send("!ping")
+                    await message.channel.send(self.config.prefix + "ping")
                 else:
-                    await message.channel.send("ping!")
+                    await message.channel.send("ping" + self.config.prefix)
 
             # custom function to repeat a message if it was sent 4 times TODO: check if each message is of an individual person
             self.message4 = self.message3
@@ -430,202 +576,477 @@ class Bot:
                 channel = discord.utils.get(context.message.guild.channels, mention=channel)
                 await channel.send(text)
 
+        @admin.command()
+        async def schuld(context):  # KEEP UNTIL BOT IS SETUP AND ALL MESSAGES WERE SEND IN GUILTY CHANNEL ONCE
+            """Command for guilty usage."""
+            if self.is_admin(context.message.author.id):
+                for x in range(52):
+                    await context.message.channel.send(embed=await self.get_guilty_embed(2017, x+1, None))
+                for x in range(42):
+                    await context.message.channel.send(embed=await self.get_guilty_embed(2018, x+1, None))
+
         @self.bot.group()
         async def schuld(context):
-            """Contains all commands to show or select who's responsible for this weeks fails."""
-            pass
+            """Commands belonging to the guily game."""
+            if context.invoked_subcommand is None:
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="schuld: no currect subcommand: `" + context.message.content + "`"))
 
         @schuld.command()
         async def liste(context):
-            """Used to show the list of proposed and confirmed members that are responsible for this weeks fails."""
+            """Show the guilty list."""
             now = datetime.datetime.now()
             iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-            await context.message.channel.send(embed=await self.get_faulty_embed(iso_date[0], iso_date[1], None))
+            await context.message.channel.send(embed=await self.get_guilty_embed(iso_date[0], iso_date[1], None))
 
         @schuld.command()
-        async def ist(context, new_faulty_user_name: str):
-            """Used to select the next [iQ] Member, which is responsible for this weeks fails."""
-            faulty_guild = await self.get_faulty_guild()
-            old_faulty_user_in_guild = discord.utils.get(faulty_guild.members, id=context.message.author.id)
+        async def ist(context, *entered_guilty_members_names):
+            """Select this weeks guilty member(s)."""
+            now = datetime.datetime.now()
+            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
 
-            if len(context.message.mentions) > 0:
-                new_faulty_user_s_in_guild = context.message.mentions
-            else:
-                new_faulty_user_s_in_guild = discord.utils.get(faulty_guild.members, name=new_faulty_user_name)
+            author_player = Player.Player(discord_user_id=context.message.author.id)
+            await author_player.fill_object_from_db()
 
-            is_faulty_user = False
-            for role in old_faulty_user_in_guild.roles:
-                if role.id == self.config.old_faulty_member_role_id:
-                    is_faulty_user = True
-                    break
-            if is_faulty_user:
-                if new_faulty_user_s_in_guild is not None:
-                    contains_self = False
-                    if len(context.message.mentions) > 0:
-                        for new_faulty_user in new_faulty_user_s_in_guild:
-                            if new_faulty_user.id == old_faulty_user_in_guild.id:
-                                await context.message.channel.send("Ey, Du kannst dir nicht selber die Schuld geben!")
-                                contains_self = True
-                                break
-                    else:
-                        if new_faulty_user_s_in_guild.id == old_faulty_user_in_guild.id:
-                            await context.message.channel.send("Ey, Du kannst dir nicht selber die Schuld geben!")
-                            contains_self = True
-                    if not contains_self:
-                        now = datetime.datetime.now()
-                        iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-                        inserted_users = 0
-                        if len(context.message.mentions) > 0:
-                            for new_faulty_user in new_faulty_user_s_in_guild:
-                                if not await self.db_connection.isUserEnteredFromUserInWeek(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id, new_faulty_user.id):
-                                    await self.db_connection.insertFaultyUser(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id, new_faulty_user.id)
-                                    inserted_users += 1
-                                else:
-                                    await context.message.channel.send("Du hast **" + new_faulty_user.name + "** schon eingetragen!")
+            old_guilty_players = await self.get_old_guilty_players()
+            not_recognized_written_names = []
+            not_added_members = []
+            proposed_guilty_players = []
+            already_added_guilty_players = []
+            new_guilty_players = []
+
+            authorized_player = False
+            for old_guilty_player in old_guilty_players:
+                if old_guilty_player.discord_user_object.id == author_player.discord_user_object.id:
+                    authorized_player = True
+
+            if authorized_player:
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    for mentioned_member in context.message.mentions:
+                        if await self.is_discord_id_in_db(mentioned_member.id) is False:
+                            not_added_members.append(mentioned_member)
                         else:
-                            if not await self.db_connection.isUserEnteredFromUserInWeek(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id, new_faulty_user_s_in_guild.id):
-                                await self.db_connection.insertFaultyUser(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id, new_faulty_user_s_in_guild.id)
-                                inserted_users += 1
+                            player = Player.Player(discord_user_id=mentioned_member.id)
+                            await player.fill_object_from_db()
+                            proposed_guilty_players.append(player)
+
+                    context_skipped = False
+                    for written_member in context.args:
+                        if context_skipped is False:  # First element in context.args is context, so just skip over first element of for loop
+                            context_skipped = True
+                        else:
+                            if written_member[0:2] == "<@" and written_member[-1:] == ">":
+                                pass
                             else:
-                                await context.message.channel.send("Du hast **" + new_faulty_user_s_in_guild.name + "** schon eingetragen!")
-                        faulty_embed = await self.get_faulty_embed(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id)
-                        await context.message.channel.send("Du hast **" + str(inserted_users) + "** Leute in die Schuldnerliste eingetragen.\n", embed=faulty_embed)
+                                player_data = await self.db_connection.getPlayerData(name=written_member)
+                                if player_data is not False:
+                                    player = Player.Player(name=player_data[0][1])
+                                    await player.fill_object_from_db()
+                                    proposed_guilty_players.append(player)
+                                else:
+                                    not_recognized_written_names.append(written_member)
+
+
+                    admin_user = self.bot.get_user(self.config.admin_id)
+                    for member in not_added_members:
+                        if self.config.support_skip_all == 0:
+                            if self.config.support_skip_player_missing_in_db == 0:
+                                await admin_user.send(embed=(await self.get_player_missing_in_db_embed(context, member)))
+                            else:
+                                pass
+                        else:
+                            pass
+
+                    contains_self = False
+                    for proposed_player in proposed_guilty_players:
+                        if proposed_player.discord_user_object.id == author_player.discord_user_object.id:
+                            contains_self = True
+                        elif await self.db_connection.isUserEnteredFromUserInWeek(str(iso_date[0]), str(iso_date[1]), author_player.id, proposed_player.id):
+                            already_added_guilty_players.append(proposed_player)
+                        else:
+                            await self.db_connection.insertGuiltyUser(str(iso_date[0]), str(iso_date[1]), author_player.id, proposed_player.id)
+                            new_guilty_players.append(proposed_player)
+
+                    message_string = ""
+                    if contains_self is True:
+                        message_string += "Du hast versucht, dich selber einzutragen, das ist nicht möglich.\n\n"
+                    if len(not_recognized_written_names) > 0:
+                        message_string += "Folgende Namen wurden nicht erkannt oder existieren nicht:\n```diff\n"
+                        for written_name in not_recognized_written_names:
+                            message_string += "-" + written_name + "\n"
+                        message_string += "```\n"
+                    if len(not_added_members) > 0:
+                        message_string += "Folgende Personen wurden noch nicht von den Admins eingetragen, sie wurden benachrichtigt und kümmern sich darum.\n```diff\n"
+                        for member in not_added_members:
+                            message_string += "-" + member.name + "\n"
+                        message_string += "```\n"
+                    if len(already_added_guilty_players) > 0:
+                        message_string += "Folgende Personen wurden schon von dir vorgeschlagen. Du kannst sie nicht ein zweites mal vorschlagen.\n```diff\n"
+                        for player in already_added_guilty_players:
+                            message_string += " " + player.name + "\n"
+                        message_string += "```\n"
+                    if len(new_guilty_players) > 0:
+                        message_string += "Folgende Personen wurden erfolgreich von dir für das Schuldspiel vorgeschlagen:\n```diff\n"
+                        for proposed_player in new_guilty_players:
+                            message_string += "+" + proposed_player.name
+                        message_string += "```\n"
+
+                    guilty_embed = await self.get_guilty_embed(str(iso_date[0]), str(iso_date[1]), author_player.id, message_string)
+                    await context.message.channel.send(embed=guilty_embed)
                 else:
-                    await context.message.channel.send("Die ausgewählten Schuldigen sind nicht auf unserem Server oder du hast sie falsch angegeben :(")
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Diese Woche wurde schon abgeschlossen!"))
             else:
-                await context.message.channel.send("Ey, Ich höre nur auf den Schuldigen von letzter Woche!")
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Ey, dieser Befehl ist nur für Schuldigen von letzter Woche zugelassen!"))
 
         @schuld.command()
-        async def grund(context, faulty_reason: str):
-            """Used to give the reason for why the selected [iQ] Member is responsible for this weeks fails"""
-            faulty_guild = discord.utils.get(self.bot.guilds, id=self.config.faulty_member_guild_id)
+        async def grund(context, guilty_reason: str):
+            """Enter the reasons why the selected members are guilty this week."""
+            old_guilty_players = await self.get_old_guilty_players()
+            author_player = Player.Player(discord_user_id=context.message.author.id)
+            await author_player.fill_object_from_db()
 
-            old_faulty_user_in_guild = discord.utils.get(faulty_guild.members, id=context.message.author.id)
+            authorized_player = False
+            for old_guilty_player in old_guilty_players:
+                if old_guilty_player.discord_user_object.id == author_player.discord_user_object.id:
+                    authorized_player = True
 
-            is_faulty_user = False
-            for role in old_faulty_user_in_guild.roles:
-                if role.id == self.config.old_faulty_member_role_id:
-                    is_faulty_user = True
-                    break
-            if is_faulty_user:
+            if authorized_player:
                 now = datetime.datetime.now()
                 iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-                if not await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id):
-                    await self.db_connection.insertFaultyReason(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id, faulty_reason)
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    if not await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), author_player.id):
+                        await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), author_player.id, guilty_reason)
 
-                    faulty_embed = await self.get_faulty_embed(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id)
-                    await context.message.channel.send("Du hast folgendes als Schuldgrund für diese Woche eingetragen:\n```" + faulty_reason + "```", embed=faulty_embed)
+                        guilty_embed = await self.get_guilty_embed(str(iso_date[0]), str(iso_date[1]), author_player.id, "Du hast folgendes als Schuldgrund für diese Woche eingetragen:\n```" + guilty_reason + "```")
+                        await context.message.channel.send(embed=guilty_embed)
+                    else:
+                        await self.db_connection.alterReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), author_player.id, guilty_reason)
+
+                        guilty_embed = await self.get_guilty_embed(str(iso_date[0]), str(iso_date[1]), author_player.id, "Dein eingetragener Schuldgrund wurde aktualisiert:\n```" + guilty_reason + "```")
+                        await context.message.channel.send(embed=guilty_embed)
                 else:
-                    await self.db_connection.alterReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id, faulty_reason)
-
-                    faulty_embed = await self.get_faulty_embed(str(iso_date[0]), str(iso_date[1]), old_faulty_user_in_guild.id)
-                    await context.message.channel.send("Dein eingetragener Schuldgrund wurde aktualisiert:\n```" + faulty_reason + "```", embed=faulty_embed)
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Diese Woche wurde schon abgeschlossen!"))
             else:
                 await context.message.channel.send("Ey, Ich höre nur auf den Schuldigen von letzter Woche!")
+
+        @schuld.command()
+        async def member(context):
+            """Shows a list of all members that can be guilty or were guilty once."""
+            active_players = []
+            inactive_players = []
+            players_data = await self.db_connection.getAllPlayersIds()
+            for player_data in players_data:
+                player = Player.Player(id=player_data['id'])
+                await player.fill_object_from_db()
+                if player.active:
+                    active_players.append(player)
+                else:
+                    inactive_players.append(player)
+
+            active_players_list = "```\n"
+            for active_player in active_players:
+                active_players_list += active_player.name + "\n"
+            active_players_list += "```"
+            inactive_players_list = "```\n"
+            for inactive_player in inactive_players:
+                inactive_players_list += inactive_player.name + "\n"
+            inactive_players_list += "```"
+
+            member_embed = discord.Embed(title="Member des Schuldspiels", description="Folgende Member sind für das Schuldspiel eingetragen:", color=0xFFCC00)
+            member_embed.add_field(name="Aktive Member:", value=active_players_list, inline=False)
+            member_embed.add_field(name="Inaktive Member:", value=inactive_players_list, inline=False)
+            member_embed.set_footer(text="Nur aktive Member können schuldig gemacht werden.")
+            await context.message.channel.send(embed=member_embed)
 
         @schuld.command()
         async def farbe(context, red, green, blue):
-            """Used to change the color of the responsible role, only used from current responsible member."""
-            faulty_guild = await self.get_faulty_guild()
-            faulty_member_role = discord.utils.get(faulty_guild.roles, id=self.config.faulty_member_role_id)
+            """Change the color of the guilty role. (Can only be used by the current guilty member(s).)"""
+            guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
+            guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.guilty_member_role_id)
+            guilty_players = await self.get_guilty_players()
+            authorized = False
 
-            try:
-                if 0 <= int(red) <= 255 and 0 <= int(green) <= 255 and 0 <= int(blue) <= 255:
-                    if (await self.get_faulty_members()).__contains__(context.message.author):  # or context.message.author.id == self.config.admin_id:
+            for guilty_player in guilty_players:
+                if guilty_player.discord_user_id == context.message.author.id:
+                    authorized = True
+                    break
+
+            if authorized:
+                try:
+                    if 0 <= int(red) <= 255 and 0 <= int(green) <= 255 and 0 <= int(blue) <= 255:
                         color_hex = "{:02x}{:02x}{:02x}".format(int(red), int(green), int(blue))
-                        await faulty_member_role.edit(color=discord.Color(int(color_hex, 16)))
+                        await guilty_member_role.edit(color=discord.Color(int(color_hex, 16)))
                         await context.message.channel.send(embed=discord.Embed(color=discord.Color(int(color_hex, 16)), description="Die Farbe wurde erfolgreich geändert."))
                     else:
-                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Dieser Befehl kann nur von Schuldigen benutzt werden!"))
+                        raise ValueError("Values not between or equal to 0 and 255")
+                except ValueError:
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**Deine Farbeingabe war falsch!**\n"
+                                                                                                                      "Gebe jeweils einen Wert von 0 bis 255 für **Rot**, **Grün** und **Blau** ein.\n"
+                                                                                                                      "\n"
+                                                                                                                      "Hilfe: https://www.google.de/search?&q=color+picker\n"
+                                                                                                                      "\n"
+                                                                                                                      "Syntax:\n"
+                                                                                                                      "```!schuld farbe 0-255 0-255 0-255```\n"
+                                                                                                                      "\n"
+                                                                                                                      "Beispiel:\n"
+                                                                                                                      "```!schuld farbe 233 31 98```"))
+            else:
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Dieser Befehl kann nur vom aktuell Schuldigen benutzt werden!"))
+
+        @schuld.group()
+        async def edit(context):
+            """Edit your name or description for the guilty game. ([iQ]-Leaders can edit everyone.)"""
+            pass
+
+        @edit.command()
+        async def name(context, username, user_mention=None):
+            """Edit your name for the guilty game. ([iQ]-Leaders can edit everyone's name.) """
+            player_data = None
+            if user_mention is not None:
+                if self.config.iq_leaders_id.__contains__(context.message.author.id):
+                    player_data = await self.is_discord_id_in_db(context.message.mentions[0].id)
                 else:
-                    raise ValueError("Values not between or equal to 0 and 255")
-            except ValueError:
-                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**Deine Farbeingabe war falsch!**\n"
-                                                                                                                  "Gebe jeweils einen Wert von 0 bis 255 für **Rot**, **Grün** und **Blau** ein.\n"
-                                                                                                                  "\n"
-                                                                                                                  "Hilfe: https://www.google.de/search?&q=color+picker\n"
-                                                                                                                  "\n"
-                                                                                                                  "Syntax:\n"
-                                                                                                                  "```!schuld farbe 0-255 0-255 0-255```\n"
-                                                                                                                  "\n"
-                                                                                                                  "Beispiel:\n"
-                                                                                                                  "```!schuld farbe 233 31 98```"))
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen den Namen von anderen editieren."))
+            else:
+                player_data = await self.is_discord_id_in_db(context.message.author.id)
+
+            if player_data is not None:
+                if player_data is False:
+                    admin_user = self.bot.get_user(self.config.admin_id)
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Du/der angegebene Member ist nicht in der Memberliste eingetragen.\n"
+                                                                                                                  "Wende dich an " + admin_user.mention + "."))
+                else:
+                    player = Player.Player(id=player_data[0]['id'])
+                    await player.fill_object_from_db()
+                    name_used = await self.db_connection.isNameUsed(username)
+                    if name_used is False:
+                        query = await self.db_connection.alterNameOfPlayer(player.id, username)
+                        if query:
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description="Der Name von " + player.discord_user_object.mention + " wurde erfolgreich zu `" + username + "` geändert."))
+                        else:
+                            admin_user = self.bot.get_user(self.config.admin_id)
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Ein Fehler ist aufgetreten. Wende dich eventuell an " + admin_user.mention + "."))
+                    else:
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es ist bereits ein Member mit dem Namen `" + username + "` in der Memberliste eingetragen!\n"
+                                                                                                                      "Versuche es mit einem anderen Namen."))
+
+        @edit.command()
+        async def description(context, description, user_mention=None):
+            """Edit your description for the guilty game. ([iQ]-Leaders can edit everyone's description.) """
+            player_data = None
+            if user_mention is not None and len(context.message.mentions) > 0:
+                if self.config.iq_leaders_id.__contains__(context.message.author.id):
+                    player_data = await self.is_discord_id_in_db(context.message.mentions[0].id)
+                else:
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen die Beschreibung von anderen editieren."))
+            else:
+                player_data = await self.is_discord_id_in_db(context.message.author.id)
+
+            if player_data is not None:
+                if player_data is False:
+                    admin_user = self.bot.get_user(self.config.admin_id)
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Du/der angegebene Member ist nicht in der Memberliste eingetragen.\n"
+                                                                                                                  "Wende dich an " + admin_user.mention + "."))
+                else:
+                    player = Player.Player(id=player_data[0]['id'])
+                    await player.fill_object_from_db()
+                    query = await self.db_connection.alterDescriptionOfPlayer(player.id, description)
+                    if query:
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description="Die Beschreibung von **" + player.discord_user_object.mention + "** wurde geändert:\n"
+                                                                                                                        "```" + description + "```"))
+                    else:
+                        admin_user = self.bot.get_user(self.config.admin_id)
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Ein Fehler ist aufgetreten. Wende dich eventuell an " + admin_user.mention + "."))
 
         @schuld.group()
         async def confirm(context):
-            """Used by [iQ]'s Leaders to confirm proposed responsible members of the current week."""
+            """Confirm proposed guilty member(s) and guilty reasons. (Can only be used by Leaders of [iQ].)"""
             pass
 
         @confirm.command()
-        async def user(context, new_faulty_user_name: str):
-            """Confirm the proposed responsible member of a specific user for the current week."""
-            faulty_guild = discord.utils.get(self.bot.guilds, id=self.config.faulty_member_guild_id)
-            command_user = discord.utils.get(faulty_guild.members, id=context.message.author.id)
-
-            if len(context.message.mentions) > 0:
-                new_faulty_user_s_in_guild = context.message.mentions
-            else:
-                new_faulty_user_s_in_guild = discord.utils.get(faulty_guild.members, name=new_faulty_user_name)
-
-            if self.config.iq_leaders_id.__contains__(command_user.id):
+        async def user(context, *mentioned_user_names):
+            """Confirm proposed guilty member(s)."""
+            if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
                 iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-                for new_faulty_user in new_faulty_user_s_in_guild:
-                    if await self.db_connection.isUserEnteredInWeek(str(iso_date[0]), str(iso_date[1]), new_faulty_user.id):
-                        data = await self.db_connection.alterConfirmationForUserInWeek(str(iso_date[0]), str(iso_date[1]), new_faulty_user.id)
-                        await context.message.channel.send("`" + data + "`", embed=await self.get_faulty_embed(iso_date[0], iso_date[1], None))
-                    else:
-                        await context.message.channel.send("**" + new_faulty_user.name + "** wurde von niemandem eingetragen!")
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    new_guilty_players = []
+
+                    for mentioned_member in context.message.mentions:
+                        player = Player.Player(discord_user_id=mentioned_member.id)
+                        await player.fill_object_from_db()
+                        new_guilty_players.append(player)
+
+                    context_skipped = False
+                    for written_member in context.args:
+                        if context_skipped is False:  # First element in context.args is context, so just skip over first element of for loop
+                            context_skipped = True
+                        else:
+                            if written_member[0:2] == "<@" and written_member[-1:] == ">":
+                                pass
+                            else:
+                                player_data = await self.db_connection.getPlayerData(name=written_member)
+                                if player_data is not False:
+                                    player = Player.Player(name=player_data[0]['name'])
+                                    await player.fill_object_from_db()
+                                    new_guilty_players.append(player)
+                                else:
+                                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es wurde kein Member mit dem Namen `" + written_member + "` in der Memberliste gefunden."))
+
+
+                    for new_guilty_player in new_guilty_players:
+                        if await self.db_connection.isUserEnteredInWeek(str(iso_date[0]), str(iso_date[1]), new_guilty_player.id):
+                            data = await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), new_guilty_player.id)
+                            await context.message.channel.send("`" + data + "`", embed=await self.get_guilty_embed(iso_date[0], iso_date[1], None))
+                        else:
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**" + new_guilty_player.name + "** wurde von niemandem eingetragen!"))
+                else:
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Diese Woche wurde schon abgeschlossen!"))
             else:
-                await context.message.channel.send("Nur die [iQ]-Leader können diesen Befehl benutzen!")
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen diesen Befehl benutzen!"))
 
         @confirm.command()
-        async def grund(context, owner_user_name: str):
-            """Confirm the proposed reason of a specific user for the current week."""
-            faulty_guild = discord.utils.get(self.bot.guilds, id=self.config.faulty_member_guild_id)
-
-            command_user = discord.utils.get(faulty_guild.members, id=context.message.author.id)
-
-            if len(context.message.mentions) > 0:
-                if len(context.message.mentions) > 1:
-                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es kann nur ein Grund angegeben werden!"))
-                owner_user_in_guild = context.message.mentions[0]
-
-            else:
-                owner_user_in_guild = discord.utils.get(faulty_guild.members, name=owner_user_name)
-
-            if self.config.iq_leaders_id.__contains__(command_user.id):
+        async def grund(context, owner_player_name: str):
+            """Confirm proposed guilty reason."""
+            if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
                 iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-                if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), owner_user_in_guild.id):
-                    data = await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), owner_user_in_guild.id)
-                    await context.message.channel.send("`" + data + "`", embed=await self.get_faulty_embed(iso_date[0], iso_date[1], None))
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    owner_player = None
+                    get_written_player = True
+
+                    if len(context.message.mentions) > 1:
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es kann nur ein Grund eingetragen werden!"))
+                        get_written_player = False
+                    elif len(context.message.mentions) == 1:
+                        get_written_player = False
+                        for mentioned_member in context.message.mentions:
+                            player = Player.Player(discord_user_id=mentioned_member.id)
+                            await player.fill_object_from_db()
+                            owner_player = player
+
+                    if get_written_player:
+                        player_data = await self.db_connection.getPlayerData(name=owner_player_name)
+                        if player_data is not False:
+                            player = Player.Player(name=player_data[0]['name'])
+                            await player.fill_object_from_db()
+                            owner_player = player
+                        else:
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es wurde kein Member mit dem Namen `" + written_member + "` in der Memberliste gefunden."))
+
+                    if owner_player is not None:
+                        if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), owner_player.id):
+                            data = await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), owner_player.id)
+                            await context.message.channel.send("`" + data + "`", embed=await self.get_guilty_embed(iso_date[0], iso_date[1], None))
+                        else:
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**" + owner_player.name + "** hat in dieser Woche keine Begründung eingetragen!"))
                 else:
-                    await context.message.channel.send("**" + owner_user_in_guild.name + "** hat in dieser Woche keine Begründung eingetragen!")
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Diese Woche wurde schon abgeschlossen!"))
             else:
-                await context.message.channel.send("Nur die [iQ]-Leader können diesen Befehl benutzen!")
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen diesen Befehl benutzen!"))
+
+        @schuld.group()
+        async def reject(context):
+            """Reject proposed guilty member(s) and guilty reasons. (Can only be used by Leaders of [iQ].)"""
+            pass
+
+        @reject.command()
+        async def user(context, *mentioned_user_names):
+            """Reject proposed guilty member(s)."""
+            if self.config.iq_leaders_id.__contains__(context.message.author.id):
+                now = datetime.datetime.now()
+                iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    rejected_guilty_players = []
+
+                    for mentioned_member in context.message.mentions:
+                        player = Player.Player(discord_user_id=mentioned_member.id)
+                        await player.fill_object_from_db()
+                        rejected_guilty_players.append(player)
+
+                    context_skipped = False
+                    for written_member in context.args:
+                        if context_skipped is False:  # First element in context.args is context, so just skip over first element of for loop
+                            context_skipped = True
+                        else:
+                            if written_member[0:2] == "<@" and written_member[-1:] == ">":
+                                pass
+                            else:
+                                player_data = await self.db_connection.getPlayerData(name=written_member)
+                                if player_data is not False:
+                                    player = Player.Player(name=player_data[0]['name'])
+                                    await player.fill_object_from_db()
+                                    rejected_guilty_players.append(player)
+                                else:
+                                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es wurde kein Member mit dem Namen `" + written_member + "` in der Memberliste gefunden."))
+
+
+                    for rejected_guilty_player in rejected_guilty_players:
+                        if await self.db_connection.isUserEnteredInWeek(str(iso_date[0]), str(iso_date[1]), rejected_guilty_player.id):
+                            data = await self.db_connection.alterRejectionToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), rejected_guilty_player.id)
+                            await context.message.channel.send("`" + data + "`", embed=await self.get_guilty_embed(iso_date[0], iso_date[1], None))
+                        else:
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**" + rejected_guilty_player.name + "** wurde von niemandem eingetragen!"))
+                else:
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Diese Woche wurde schon abgeschlossen!"))
+            else:
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen diesen Befehl benutzen!"))
+
+        @reject.command()
+        async def grund(context, owner_player_name: str):
+            """Confirm proposed guilty reason."""
+            if self.config.iq_leaders_id.__contains__(context.message.author.id):
+                now = datetime.datetime.now()
+                iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    owner_players = []
+                    get_written_player = True
+
+                    if len(context.message.mentions) >= 1:
+                        get_written_player = False
+                        for mentioned_member in context.message.mentions:
+                            player = Player.Player(discord_user_id=mentioned_member.id)
+                            await player.fill_object_from_db()
+                            owner_players.append(player)
+
+                    if get_written_player:
+                        player_data = await self.db_connection.getPlayerData(name=owner_player_name)
+                        if player_data is not False:
+                            player = Player.Player(name=player_data[0]['name'])
+                            await player.fill_object_from_db()
+                            owner_players.append(player)
+                        else:
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es wurde kein Member mit dem Namen `" + written_member + "` in der Memberliste gefunden."))
+
+                    if len(owner_players) >= 1:
+                        for owner_player in owner_players:
+                            if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), owner_player.id):
+                                data = await self.db_connection.alterRejectionToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), owner_player.id)
+                                await context.message.channel.send("`" + data + "`", embed=await self.get_guilty_embed(iso_date[0], iso_date[1], None))
+                            else:
+                                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**" + owner_player.name + "** hat in dieser Woche keine Begründung eingetragen!"))
+                else:
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Diese Woche wurde schon abgeschlossen!"))
+            else:
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen diesen Befehl benutzen!"))
 
         @confirm.command()
         async def final(context):
-            """Used by [iQ]'s Leaders to finalize proposed responsible members of the current week."""
-            faulty_guild = discord.utils.get(self.bot.guilds, id=self.config.faulty_member_guild_id)
-
-            command_user = discord.utils.get(faulty_guild.members, id=context.message.author.id)
-
-
-            if self.config.iq_leaders_id.__contains__(command_user.id):
+            """Finalize the current week. Guilty members and reasons will be locked."""
+            if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
                 iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-                if await self.db_connection.isOneUserAcceptedInWeek(str(iso_date[0]), str(iso_date[1])) and await self.db_connection.isOneUserAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
+                if await self.db_connection.isOneUserAcceptedInWeek(str(iso_date[0]), str(iso_date[1])) and await self.db_connection.isOneReasonAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
                     if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
                         data = await self.db_connection.insertFinalizedWeek(str(iso_date[0]), str(iso_date[1]))
-                        await context.message.channel.send("`" + data + "`", embed=await self.get_faulty_embed(iso_date[0], iso_date[1], None))
+                        await context.message.channel.send("`" + data + "`", embed=await self.get_guilty_embed(iso_date[0], iso_date[1], None))
+                        await self.refresh_guilty_members()
+                        await self.send_guilty_message_to_guilty_channel()
                     else:
-                        await context.message.channel.send("Diese Woche wurde schon finalisiert.")
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Diese Woche wurde schon abgeschlossen!"))
                 else:
-                    await context.message.channel.send("Es wurden in dieser Woche noch keine Benutzer oder Begründungen akzeptiert!")
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es wurden in dieser Woche noch keine Benutzer oder Begründungen akzeptiert!"))
             else:
-                await context.message.channel.send("Nur die [iQ]-Leader können diesen Befehl benutzen!")
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader können diesen Befehl benutzen!"))
 
-
+        # TODO: Add logout and/or closing of connections to discord, db and other stuff. Somehow end coroutines?
         self.bot.run(self.config.token)
