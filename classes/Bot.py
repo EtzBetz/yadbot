@@ -29,10 +29,7 @@ class Bot:
 
     current_week = None
 
-    message4 = None
-    message3 = None
-    message2 = None
-    message1 = None
+    last_messages = [None] * 4
 
 
     async def print_guilds(self):
@@ -267,6 +264,15 @@ class Bot:
         difference = next_year_date - now
         await asyncio.sleep((difference.days*24*60*60)+difference.seconds)
 
+    async def remove_old_guilty_members(self):
+        old_guilty_players = await self.get_old_guilty_players()
+        guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
+        if guilty_guild is not None:
+            old_guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.old_guilty_member_role_id)
+            for old_guilty_player in old_guilty_players:
+                old_guilty_member = discord.utils.get(guilty_guild.members, id=old_guilty_player.discord_user_id)
+                await self.remove_role_safe(old_guilty_member, old_guilty_member_role)
+
     async def refresh_guilty_members(self):
         guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
         guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.guilty_member_role_id)
@@ -456,6 +462,23 @@ class Bot:
     async def is_discord_id_in_db(self, discord_user_id):
         return await self.db_connection.getPlayerData(discord_user_id=discord_user_id)
 
+    async def reply_equal_messages(self, message):
+        self.last_messages[3] = self.last_messages[2]
+        self.last_messages[2] = self.last_messages[1]
+        self.last_messages[1] = self.last_messages[0]
+        self.last_messages[0] = message
+
+        if not message.author.id == self.config.bot_id:
+            if self.last_messages[3] is not None:
+                if self.last_messages[0].content == self.last_messages[1].content and self.last_messages[1].content == self.last_messages[2].content and self.last_messages[2].content == self.last_messages[3].content:
+                    message_author_ids = [self.last_messages[0].author.id]
+                    if not message_author_ids.__contains__(self.last_messages[1].author.id):
+                        message_author_ids.append(self.last_messages[1].author.id)
+                        if not message_author_ids.__contains__(self.last_messages[2].author.id):
+                            message_author_ids.append(self.last_messages[2].author.id)
+                            if not message_author_ids.__contains__(self.last_messages[3].author.id):
+                                if len(message.content) > 0:
+                                    await message.channel.send(message.content)
 
     @staticmethod
     async def getInstance():
@@ -505,17 +528,8 @@ class Bot:
                 else:
                     await message.channel.send("ping" + self.config.prefix)
 
-            # custom function to repeat a message if it was sent 4 times TODO: check if each message is of an individual person
-            self.message4 = self.message3
-            self.message3 = self.message2
-            self.message2 = self.message1
-            self.message1 = message
-            if self.message4 is not None:
-                if self.message1.author.id != self.config.bot_id and self.message2.author.id != self.config.bot_id and self.message3.author.id != self.config.bot_id and self.message4.author.id != self.config.bot_id:
-                    if self.message1.content == self.message4.content:
-                        if self.message1.content == self.message3.content:
-                            if self.message1.content == self.message2.content:
-                                await message.channel.send(self.message1.content)
+            # custom function to repeat a message if it was sent 4 times
+            await self.reply_equal_messages(message)  # TODO: check if this works properly
 
             # custom function to react to any user why writes " owo " anywhere
             if message.content.lower().__contains__("owo"):
@@ -577,13 +591,18 @@ class Bot:
                 await channel.send(text)
 
         @admin.command()
-        async def schuld(context):  # KEEP UNTIL BOT IS SETUP AND ALL MESSAGES WERE SEND IN GUILTY CHANNEL ONCE
+        async def schuldtimeline(context):  # KEEP UNTIL BOT IS SETUP AND ALL MESSAGES WERE SEND IN GUILTY CHANNEL ONCE
             """Command for guilty usage."""
             if self.is_admin(context.message.author.id):
                 for x in range(52):
                     await context.message.channel.send(embed=await self.get_guilty_embed(2017, x+1, None))
                 for x in range(42):
                     await context.message.channel.send(embed=await self.get_guilty_embed(2018, x+1, None))
+
+        @admin.command()
+        async def schuldnews(context):
+            if self.is_admin(context.message.author.id):
+                await self.send_guilty_message_to_guilty_channel()
 
         @self.bot.group()
         async def schuld(context):
@@ -599,7 +618,7 @@ class Bot:
             await context.message.channel.send(embed=await self.get_guilty_embed(iso_date[0], iso_date[1], None))
 
         @schuld.command()
-        async def ist(context, *entered_guilty_members_names):
+        async def ist(context, *guilty_members):  # guilty_members is being used, despite IDE highlighting it not being used (context.args)
             """Select this weeks guilty member(s)."""
             now = datetime.datetime.now()
             iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
@@ -758,7 +777,7 @@ class Bot:
             await context.message.channel.send(embed=member_embed)
 
         @schuld.command()
-        async def farbe(context, red, green, blue):
+        async def farbe(context, red_value, green_value, blue_value):
             """Change the color of the guilty role. (Can only be used by the current guilty member(s).)"""
             guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
             guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.guilty_member_role_id)
@@ -772,8 +791,8 @@ class Bot:
 
             if authorized:
                 try:
-                    if 0 <= int(red) <= 255 and 0 <= int(green) <= 255 and 0 <= int(blue) <= 255:
-                        color_hex = "{:02x}{:02x}{:02x}".format(int(red), int(green), int(blue))
+                    if 0 <= int(red_value) <= 255 and 0 <= int(green_value) <= 255 and 0 <= int(blue_value) <= 255:
+                        color_hex = "{:02x}{:02x}{:02x}".format(int(red_value), int(green_value), int(blue_value))
                         await guilty_member_role.edit(color=discord.Color(int(color_hex, 16)))
                         await context.message.channel.send(embed=discord.Embed(color=discord.Color(int(color_hex, 16)), description="Die Farbe wurde erfolgreich geändert."))
                     else:
@@ -798,10 +817,10 @@ class Bot:
             pass
 
         @edit.command()
-        async def name(context, username, user_mention=None):
+        async def name(context, new_username, user_to_edit_mention=None):
             """Edit your name for the guilty game. ([iQ]-Leaders can edit everyone's name.) """
             player_data = None
-            if user_mention is not None:
+            if user_to_edit_mention is not None:
                 if self.config.iq_leaders_id.__contains__(context.message.author.id):
                     player_data = await self.is_discord_id_in_db(context.message.mentions[0].id)
                 else:
@@ -817,20 +836,20 @@ class Bot:
                 else:
                     player = Player.Player(id=player_data[0]['id'])
                     await player.fill_object_from_db()
-                    name_used = await self.db_connection.isNameUsed(username)
+                    name_used = await self.db_connection.isNameUsed(new_username)
                     if name_used is False:
-                        query = await self.db_connection.alterNameOfPlayer(player.id, username)
+                        query = await self.db_connection.alterNameOfPlayer(player.id, new_username)
                         if query:
-                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description="Der Name von " + player.discord_user_object.mention + " wurde erfolgreich zu `" + username + "` geändert."))
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description="Der Name von " + player.discord_user_object.mention + " wurde erfolgreich zu `" + new_username + "` geändert."))
                         else:
                             admin_user = self.bot.get_user(self.config.admin_id)
                             await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Ein Fehler ist aufgetreten. Wende dich eventuell an " + admin_user.mention + "."))
                     else:
-                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es ist bereits ein Member mit dem Namen `" + username + "` in der Memberliste eingetragen!\n"
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es ist bereits ein Member mit dem Namen `" + new_username + "` in der Memberliste eingetragen!\n"
                                                                                                                       "Versuche es mit einem anderen Namen."))
 
         @edit.command()
-        async def description(context, description, user_mention=None):
+        async def description(context, new_description, user_mention=None):
             """Edit your description for the guilty game. ([iQ]-Leaders can edit everyone's description.) """
             player_data = None
             if user_mention is not None and len(context.message.mentions) > 0:
@@ -849,10 +868,10 @@ class Bot:
                 else:
                     player = Player.Player(id=player_data[0]['id'])
                     await player.fill_object_from_db()
-                    query = await self.db_connection.alterDescriptionOfPlayer(player.id, description)
+                    query = await self.db_connection.alterDescriptionOfPlayer(player.id, new_description)
                     if query:
                         await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description="Die Beschreibung von **" + player.discord_user_object.mention + "** wurde geändert:\n"
-                                                                                                                        "```" + description + "```"))
+                                                                                                                        "```" + new_description + "```"))
                     else:
                         admin_user = self.bot.get_user(self.config.admin_id)
                         await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Ein Fehler ist aufgetreten. Wende dich eventuell an " + admin_user.mention + "."))
@@ -863,7 +882,7 @@ class Bot:
             pass
 
         @confirm.command()
-        async def user(context, *mentioned_user_names):
+        async def user(context, *guilty_members):
             """Confirm proposed guilty member(s)."""
             if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
@@ -905,7 +924,7 @@ class Bot:
                 await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen diesen Befehl benutzen!"))
 
         @confirm.command()
-        async def grund(context, owner_player_name: str):
+        async def grund(context, reason_owner_member: str):
             """Confirm proposed guilty reason."""
             if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
@@ -925,7 +944,7 @@ class Bot:
                             owner_player = player
 
                     if get_written_player:
-                        player_data = await self.db_connection.getPlayerData(name=owner_player_name)
+                        player_data = await self.db_connection.getPlayerData(name=reason_owner_member)
                         if player_data is not False:
                             player = Player.Player(name=player_data[0]['name'])
                             await player.fill_object_from_db()
@@ -950,7 +969,7 @@ class Bot:
             pass
 
         @reject.command()
-        async def user(context, *mentioned_user_names):
+        async def user(context, *guilty_member):
             """Reject proposed guilty member(s)."""
             if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
@@ -992,7 +1011,7 @@ class Bot:
                 await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen diesen Befehl benutzen!"))
 
         @reject.command()
-        async def grund(context, owner_player_name: str):
+        async def grund(context, reason_owner_member: str):
             """Confirm proposed guilty reason."""
             if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
@@ -1009,7 +1028,7 @@ class Bot:
                             owner_players.append(player)
 
                     if get_written_player:
-                        player_data = await self.db_connection.getPlayerData(name=owner_player_name)
+                        player_data = await self.db_connection.getPlayerData(name=reason_owner_member)
                         if player_data is not False:
                             player = Player.Player(name=player_data[0]['name'])
                             await player.fill_object_from_db()
