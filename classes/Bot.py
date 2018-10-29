@@ -324,15 +324,15 @@ class Bot:
                                                              "Du kannst ab jetzt mit `" + self.config.prefix + "schuld ist ...` ein oder mehrere Schuldige für diese Woche festlegen.\n"
                                                              "Ich akzeptiere die Personen auf zwei Arten:\n"
                                                              "Entweder du schreibst nacheinander die Namen, wie sie mit `" + self.config.prefix + "schuld member` angezeigt werden, oder du @pingst sie.\n"
-                                                             "**Pingen kannst du aber nur in " + (await self.get_channel_from_id()).mention + " bzw. dem [iQ]-Server.**\n"
+                                                             "**Pingen kannst du aber nur in " + (await self.get_channel_from_id(self.config.guilty_member_guild_id, self.config.guilty_news_channel_id)).mention + " bzw. dem [iQ]-Server.**\n"
                                                              "Anschließend musst du noch mit `" + self.config.prefix + "schuld grund \"Deine Begründung\"` einen Schuldgrund angeben.\n"
                                                              "Später werden dann die Zuständigen entscheiden, ob dein Vorschlag angenommen oder abgelehnt wird.\n"
                                                              "\n"
                                                              "**Beispiele**:\n"
                                                              "`" + self.config.prefix + "schuld ist " + old_guilty_player.name + "` **(überall)**\n"
                                                              "`" + self.config.prefix + "schuld ist " + old_guilty_player.name + " " + admin_player.name + "` **(überall)**\n"
-                                                             "`" + self.config.prefix + "schuld ist` " + old_guilty_player.discord_user_object.mention + "  **(nur in " + (await self.get_channel_from_id()).mention + ")**\n"
-                                                             "`" + self.config.prefix + "schuld ist` " + old_guilty_player.discord_user_object.mention + " `" + admin_player.name + "`  **(nur in " + (await self.get_channel_from_id()).mention + ")**\n"
+                                                             "`" + self.config.prefix + "schuld ist` " + old_guilty_player.discord_user_object.mention + "  **(nur in " + (await self.get_channel_from_id(self.config.guilty_member_guild_id, self.config.guilty_news_channel_id)).mention + ")**\n"
+                                                             "`" + self.config.prefix + "schuld ist` " + old_guilty_player.discord_user_object.mention + " `" + admin_player.name + "`  **(nur in " + (await self.get_channel_from_id(self.config.guilty_member_guild_id, self.config.guilty_news_channel_id)).mention + ")**\n"
                                                              "`" + self.config.prefix + "schuld grund \"" + old_guilty_player.name + " ist schuld, weil ...\"`")
 
     async def send_reminder_message_to_old_guilty_members(self):
@@ -603,6 +603,11 @@ class Bot:
         async def schuldnews(context):
             if self.is_admin(context.message.author.id):
                 await self.send_guilty_message_to_guilty_channel()
+
+        @admin.command()
+        async def schuldpm(context):
+            if self.is_admin(context.message.author.id):
+                await self.send_guilty_message_to_old_guilty_members()
 
         @self.bot.group()
         async def schuld(context):
