@@ -494,7 +494,7 @@ class Bot:
         @self.bot.event
         async def on_ready():
             await self.print_guilds()
-            await self.set_presence(self.config.version_number)
+            await self.set_presence("Version " + self.config.version_number)
 
             self.db_connection = DBConnect.DBConnect()
             await self.db_connection.setUp()
