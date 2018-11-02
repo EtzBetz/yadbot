@@ -1,5 +1,7 @@
 class Config:
 
+    version_number = "1.2"  # version number of the bot you just see, don't update on your own
+
     token = ""  # token of the bot user
     prefix = "!"  # prefix for the bot to react to
     db_credentials = {  # credentials for the database

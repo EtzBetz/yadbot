@@ -39,6 +39,7 @@ class Bot:
         print("\n-----------------------------------------------")
 
     async def set_presence(self, string):
+        # noinspection PyArgumentList
         await self.bot.change_presence(status=discord.Status.online, activity=discord.Game(name=string))
 
     def is_admin(self, user_id: str):
@@ -288,14 +289,9 @@ class Bot:
             player_member = discord.utils.get(guilty_guild.members, id=player.discord_user_id)
             await self.assign_role_safe(player_member, guilty_member_role)
 
-
-        if guilty_guild is not None:
-            old_guilty_member_role = discord.utils.get(faulty_guild.roles, id=self.config.old_guilty_member_role_id)
-            for old_guilty_member in old_guilty_players:
-                await self.remove_role_safe(old_guilty_member, old_guilty_member_role)
-
         if guilty_guild is not None:
             old_guilty_member_role = discord.utils.get(guilty_guild.roles, id=self.config.old_guilty_member_role_id)
+            old_guilty_players = await self.get_old_guilty_players()
             for old_guilty_player in old_guilty_players:
                 old_guilty_member = discord.utils.get(guilty_guild.members, id=old_guilty_player.discord_user_id)
                 await self.remove_role_safe(old_guilty_member, old_guilty_member_role)
@@ -412,7 +408,7 @@ class Bot:
                     proposed_players = await self.db_connection.getAWeeksGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
                     if len(proposed_players) == 0:
                         print("debug: no user proposed")
-                        player_ids = await self.db_connection.getAllPlayersIds()
+                        player_ids = await self.db_connection.getAllPlayersIds(only_active=True)
                         pprint(player_ids)
                         random_player_id = player_ids[randint(1, len(player_ids))]['id']
 
@@ -498,7 +494,7 @@ class Bot:
         @self.bot.event
         async def on_ready():
             await self.print_guilds()
-            await self.set_presence("nichts. I'm serious.")
+            await self.set_presence(self.config.version_number)
 
             self.db_connection = DBConnect.DBConnect()
             await self.db_connection.setUp()
@@ -608,6 +604,59 @@ class Bot:
         async def schuldpm(context):
             if self.is_admin(context.message.author.id):
                 await self.send_guilty_message_to_old_guilty_members()
+
+        @admin.command()
+        async def schuldexecute(context):
+            if self.is_admin(context.message.author.id):
+                now = datetime.datetime.now()
+                iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    print("debug: not finalized")
+                    if not await self.db_connection.isOneUserAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
+                        print("debug: no user got accepted")
+                        proposed_players = await self.db_connection.getAWeeksGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
+                        if len(proposed_players) == 0:
+                            print("debug: no user proposed")
+                            player_ids = await self.db_connection.getAllPlayersIds(only_active=True)
+                            pprint(player_ids)
+                            random_player_id = player_ids[randint(1, len(player_ids))]['id']
+
+                            pprint(random_player_id)
+                            random_player = Player.Player(random_player_id)
+                            await random_player.fill_object_from_db()
+                            await self.db_connection.insertGuiltyUser(str(iso_date[0]), str(iso_date[1]), random_player.id, random_player.id)
+                            await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), random_player.id, "Der Schuldige von letzter Woche hat leider geschlafen, jetzt ist " + random_player.name + " schuld.")
+                            await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
+                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
+                        else:
+                            print("debug: user proposed, not accepted")
+                            for proposed_player in proposed_players:
+                                await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['guilty_user_id'])
+                                if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id']):
+                                    print("debug: user has entered reason, confirming now")
+                                await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id'])
+                    elif not await self.db_connection.isOneReasonAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
+                        print("debug: user accepted, reason not")
+                        guilty_users_data = await self.db_connection.getAWeeksConfirmedGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
+                        for data in guilty_users_data:
+                            if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
+                                print("debug: user entered reason, didnt get confirmed, confirming now")
+                                await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
+                                break
+                            else:
+                                print("debug: no reason entered, creating and confirming it now")
+                                await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
+                                await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
+                    print("debug: finalizing week")
+                    await self.db_connection.insertFinalizedWeek(str(iso_date[0]), str(iso_date[1]))
+                    await self.refresh_guilty_members()
+                    await self.send_guilty_message_to_guilty_channel()
+
+        @admin.command()
+        async def refreshguilty(context):
+            if self.is_admin(context.message.author.id):
+                await self.refresh_guilty_members()
 
         @self.bot.group()
         async def schuld(context):
