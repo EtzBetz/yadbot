@@ -660,7 +660,7 @@ class Bot:
 
         @self.bot.group()
         async def schuld(context):
-            """Commands belonging to the guily game."""
+            """Commands belonging to the guilty game."""
             if context.invoked_subcommand is None:
                 await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="schuld: no currect subcommand: `" + context.message.content + "`"))
 
@@ -1066,7 +1066,7 @@ class Bot:
 
         @reject.command()
         async def grund(context, reason_owner_member: str):
-            """Confirm proposed guilty reason."""
+            """Reject proposed guilty reason."""
             if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 now = datetime.datetime.now()
                 iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
