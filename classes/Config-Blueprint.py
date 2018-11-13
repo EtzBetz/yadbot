@@ -1,6 +1,6 @@
 class Config:
 
-    version_number = "1.2.1"  # version number of the bot you just see, don't update on your own
+    version_number = "1.2.2"  # version number of the bot you just see, don't update on your own
 
     token = ""  # token of the bot user
     prefix = "!"  # prefix for the bot to react to
