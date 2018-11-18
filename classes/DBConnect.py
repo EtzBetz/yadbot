@@ -194,6 +194,11 @@ class DBConnect:
         data = await self.connection.fetch(query)
         return len(data) > 0
 
+    async def hasUserEnteredRejectedReasonInWeek(self, year: str, week: str, owner_user_id: int):
+        query = "SELECT guilty_reason.id, guilty_reason.owner_user_id FROM public.guilty_reason WHERE guilty_reason.owner_user_id = " + str(owner_user_id) + " AND guilty_reason.rejected = True AND guilty_reason.year = " + year + " AND guilty_reason.week = " + week + " ORDER BY guilty_reason.id ASC"
+        data = await self.connection.fetch(query)
+        return len(data) > 0
+
     async def isOneUserAcceptedInWeek(self, year: str, week: str):
         query = "SELECT guilty_user.id, guilty_user.guilty_user_id, guilty_user.owner_user_id, guilty_user.accepted FROM public.guilty_user WHERE guilty_user.year = " + year + " AND guilty_user.week = " + week + " AND guilty_user.accepted IS TRUE ORDER BY guilty_user.id ASC"
         data = await self.connection.fetch(query)

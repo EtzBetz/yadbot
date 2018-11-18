@@ -436,7 +436,10 @@ class Bot:
                             break
                         else:
                             print("debug: no reason entered, creating and confirming it now")
-                            await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
+                            if await self.db_connection.hasUserEnteredRejectedReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
+                                await self.db_connection.alterReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen neuen Grund anzugeben :(")
+                            else:
+                                await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
                             await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
                 print("debug: finalizing week")
                 await self.db_connection.insertFinalizedWeek(str(iso_date[0]), str(iso_date[1]))
@@ -646,7 +649,10 @@ class Bot:
                                 break
                             else:
                                 print("debug: no reason entered, creating and confirming it now")
-                                await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
+                                if await self.db_connection.hasUserEnteredRejectedReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
+                                    await self.db_connection.alterReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen neuen Grund anzugeben :(")
+                                else:
+                                    await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
                                 await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
                     print("debug: finalizing week")
                     await self.db_connection.insertFinalizedWeek(str(iso_date[0]), str(iso_date[1]))
@@ -657,6 +663,12 @@ class Bot:
         async def refreshguilty(context):
             if self.is_admin(context.message.author.id):
                 await self.refresh_guilty_members()
+
+        @admin.command()
+        async def code(context, code):
+            """Execute the given string as python code."""
+            if self.is_admin(context.message.author.id):
+                exec(code)
 
         @self.bot.group()
         async def schuld(context):
