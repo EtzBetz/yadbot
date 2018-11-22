@@ -178,6 +178,10 @@ class DBConnect:
         data = await self.connection.execute(query)
         return data
 
+    async def alterActivityOfPlayer(self, id: int, active_state: bool):
+        query = "UPDATE public.player SET active = '" + str(active_state) + "' WHERE player.id = " + str(id)
+        data = await self.connection.execute(query)
+        return data
 
     async def isUserEnteredFromUserInWeek(self, year: str, week: str, owner_user_id: int, guilty_user_id: int):
         query = "SELECT guilty_user.id, guilty_user.guilty_user_id, guilty_user.owner_user_id FROM public.guilty_user WHERE guilty_user.guilty_user_id = " + str(guilty_user_id) + " AND guilty_user.owner_user_id = " + str(owner_user_id) + " AND guilty_user.year = " + year + " AND guilty_user.week = " + week + " ORDER BY guilty_user.id ASC"

@@ -27,7 +27,6 @@ class Player:
         db_connection = await DBConnect.DBConnect.getInstance()
         data = None
         if self.id is not None:
-            pprint(self.id)
             data = await db_connection.getPlayerData(id=self.id)
         elif self.name is not None:
             data = await db_connection.getPlayerData(name=self.name)

@@ -670,6 +670,12 @@ class Bot:
             if self.is_admin(context.message.author.id):
                 exec(code)
 
+        @admin.command()
+        async def test(context):
+            """Command to test some new functionality."""
+            if self.is_admin(context.message.author.id):
+                pass
+
         @self.bot.group()
         async def schuld(context):
             """Commands belonging to the guilty game."""
@@ -938,6 +944,28 @@ class Bot:
                     if query:
                         await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description="Die Beschreibung von **" + player.discord_user_object.mention + "** wurde geändert:\n"
                                                                                                                         "```" + new_description + "```"))
+                    else:
+                        admin_user = self.bot.get_user(self.config.admin_id)
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Ein Fehler ist aufgetreten. Wende dich eventuell an " + admin_user.mention + "."))
+
+        @edit.command()
+        async def active(context, user_mention):
+            """Toggle the active/inactive state of an [iQ]-Member. (Can only be used by Leaders of [iQ].)"""
+            player_data = None
+            if self.config.iq_leaders_id.__contains__(context.message.author.id):
+                player_data = await self.is_discord_id_in_db(context.message.mentions[0].id)
+            else:
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen den Aktivitätsstatus ändern."))
+
+            if player_data is not None:
+                if player_data is False:
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Der angegebene Member ist nicht in der Memberliste eingetragen."))
+                else:
+                    player = Player.Player(id=player_data[0]['id'])
+                    await player.fill_object_from_db()
+                    query = await self.db_connection.alterActivityOfPlayer(player.id, not player.active)
+                    if query:
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description="Der Aktivitätsstatus von " + player.discord_user_object.mention + " wurde erfolgreich auf `" + str(not player.active) + "` geändert."))
                     else:
                         admin_user = self.bot.get_user(self.config.admin_id)
                         await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Ein Fehler ist aufgetreten. Wende dich eventuell an " + admin_user.mention + "."))
