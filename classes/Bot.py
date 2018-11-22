@@ -820,7 +820,7 @@ class Bot:
                 await context.message.channel.send("Ey, Ich höre nur auf den Schuldigen von letzter Woche!")
 
         @schuld.command()
-        async def member(context):
+        async def memberliste(context):
             """Shows a list of all members that can be guilty or were guilty once."""
             active_players = []
             inactive_players = []
