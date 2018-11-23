@@ -168,19 +168,19 @@ class Bot:
 
         return embed
 
-    async def get_player_missing_in_db_embed(self, context, member):
+    async def get_player_missing_in_db_embed(self, message_context, member):
         embed_string = ""
         embed_string += "**Support:** *YAD__PLAYER_MISSING_IN_DB*\n\n"
-        embed_string += "From: " + context.message.author.mention + "\n"
+        embed_string += "From: " + message_context.message.author.mention + "\n"
         embed_string += "User: " + member.mention + ", ID: ``" + str(member.id) + "``\n"
         embed_string += "Channel: "
-        if context.message.guild is None:  # If message was sent not in a guild
+        if message_context.message.guild is None:  # If message was sent not in a guild
             embed_string += "DM\n"
         else:
-            embed_string += context.message.channel.mention + "\n"
-        embed_string += "Time: " + context.message.created_at.strftime("%H:%M:%S %d.%m.%Y") + "\n"
-        embed_string += "Link: " + context.message.jump_url + "\n"  # TODO: Use link markdown when it is fixed: https://trello.com/c/WD5FyVBu/2124-jump-urls-dont-work-if-masked
-        embed_string += "Message: \"" + context.message.content + "\""
+            embed_string += message_context.message.channel.mention + "\n"
+        embed_string += "Time: " + message_context.message.created_at.strftime("%H:%M:%S %d.%m.%Y") + "\n"
+        embed_string += "Link: " + message_context.message.jump_url + "\n"  # TODO: Use link markdown when it is fixed: https://trello.com/c/WD5FyVBu/2124-jump-urls-dont-work-if-masked
+        embed_string += "Message: \"" + message_context.message.content + "\""
         return discord.Embed(color=discord.Color.gold(), description=embed_string)
 
 
@@ -885,7 +885,7 @@ class Bot:
 
         @schuld.group()
         async def edit(context):
-            """Edit your name or description for the guilty game. ([iQ]-Leaders can edit everyone.)"""
+            """Edit your name or description for the guilty game, leaders can also add members or edit active states."""
             pass
 
         @edit.command()
