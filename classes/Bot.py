@@ -849,6 +849,16 @@ class Bot:
             await context.message.channel.send(embed=member_embed)
 
         @schuld.command()
+        async def member(context, user_mention):
+            player_data = await self.is_discord_id_in_db(context.message.mentions[0].id)
+            if player_data:
+                player = Player.Player(id=player_data[0]['id'])
+                await player.fill_object_from_db()
+                await context.message.channel.send(embed=await player.get_embed())
+            else:
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description=context.message.mentions[0].mention + "ist nicht in der Memberliste eingetragen."))
+
+        @schuld.command()
         async def farbe(context, red_value, green_value, blue_value):
             """Change the color of the guilty role. (Can only be used by the current guilty member(s).)"""
             guilty_guild = await self.get_guild_from_id(self.config.guilty_member_guild_id)
@@ -887,6 +897,38 @@ class Bot:
         async def edit(context):
             """Edit your name or description for the guilty game, leaders can also add members or edit active states."""
             pass
+
+        @edit.command()
+        async def add(context, user_mention, username, description, active="active"):
+            """Add a new user to the guilty game."""
+            user_is_leader = False
+            if self.config.iq_leaders_id.__contains__(context.message.author.id):
+                user_is_leader = True
+            else:
+                await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader dürfen neue Member hinzufügen."))
+
+            if user_is_leader is True:
+                if not await self.is_discord_id_in_db(context.message.mentions[0].id):
+                    if not await self.db_connection.isNameUsed(username):
+                        activity_entered = None
+                        if active == "active":
+                            activity_entered = True
+                        elif active == "inactive":
+                            activity_entered = False
+                        else:
+                            await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Es wurde **`" + active + "`** als Aktivitätsstatus angegeben, es ist nur **`active`** oder **`inactive`** zulässig."))
+
+                        if activity_entered is not None:
+                            new_player_id = await self.db_connection.insertPlayerData(username, context.message.mentions[0].id, description, activity_entered)
+                            new_player = Player.Player(id = new_player_id)
+                            await new_player.fill_object_from_db()
+                            await context.message.channel.send("Ein neuer Member wurde hinzugefügt:", embed=await new_player.get_embed())
+                    else:
+                        player_occupying_name = Player.Player(name=username)
+                        await player_occupying_name.fill_object_from_db()
+                        await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="**`" + username + "`** wird schon als Username von " + player_occupying_name.discord_user_object.mention + " benutzt."))
+                else:
+                    await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description=context.message.mentions[0].mention + " ist schon als Member eingetragen."))
 
         @edit.command()
         async def name(context, new_username, user_to_edit_mention=None):

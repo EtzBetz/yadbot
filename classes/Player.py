@@ -40,3 +40,18 @@ class Player:
         self.discord_user_id = data[0]['discord_user_id']
         self.discord_user_object = Bot.Bot.bot.get_user(self.discord_user_id)
         self.active = data[0]['active']
+
+    async def get_embed(self):
+        embed = discord.Embed(title=self.name, color=0xFFCC00)
+        if self.description is not None and self.description != "":
+            embed.add_field(name="Beschreibung", value=self.description, inline=False)
+        if self.active:
+            embed.add_field(name="Aktiv", value="Ist Teil des Schuldspiels und kann schuldig gemacht werden.", inline=False)
+        else:
+            embed.add_field(name="Inaktiv", value="Ist nicht Teil des Schuldspiels, kann derzeit nicht schuldig gemacht werden.", inline=False)
+
+        if self.discord_user_object is not None:
+            embed.description = self.discord_user_object.mention
+            embed.set_thumbnail(url=self.discord_user_object.avatar_url)
+
+        return embed
