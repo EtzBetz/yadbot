@@ -39,6 +39,7 @@ class Player:
         self.name = data[0]['name']
         self.discord_user_id = data[0]['discord_user_id']
         self.discord_user_object = Bot.Bot.bot.get_user(self.discord_user_id)
+        self.description = data[0]['description']
         self.active = data[0]['active']
 
     async def get_embed(self):

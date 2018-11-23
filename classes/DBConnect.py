@@ -28,9 +28,9 @@ class DBConnect:
         self.connection = await asyncpg.create_pool(**Config.Config.db_credentials)
         self.__instance = self
 
-    async def insertPlayerData(self, name: str, discord_user_id: int = None, description: str = ""):
+    async def insertPlayerData(self, name: str, discord_user_id: int, description: str, active: bool):
         """Inserts a new Member into the user table."""
-        query = "INSERT INTO public.player(name, discord_user_id, description) VALUES ('" + name + "', " + str(discord_user_id) + ", '" + description + "') RETURNING id"
+        query = "INSERT INTO public.player(name, discord_user_id, description, active) VALUES ('" + name + "', " + str(discord_user_id) + ", '" + description + "', " + str(active) + ") RETURNING id"
         row = await self.connection.fetchval(query)
         return str(row)
 
