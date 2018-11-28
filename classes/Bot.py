@@ -899,7 +899,7 @@ class Bot:
 
         @schuld.command()
         async def member(context, user_mention):
-            """Shows details to the mentioned member."""
+            """Shows details of the mentioned member."""
             player_data = await self.is_discord_id_in_db(context.message.mentions[0].id)
             if player_data:
                 player = Player.Player(id=player_data[0]['id'])
