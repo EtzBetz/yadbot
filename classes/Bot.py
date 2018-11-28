@@ -48,7 +48,7 @@ class Bot:
     async def assign_role_safe(self, member_in_guild, role_in_guild):
         role_assigned = False
         while not role_assigned:
-            print("processing assign_role_safe - while")
+            print("(assign_role_safe) - while")
             await member_in_guild.add_roles(role_in_guild)
             await asyncio.sleep(1)
             for role in member_in_guild.roles:
@@ -59,7 +59,7 @@ class Bot:
     async def remove_role_safe(self, member_in_guild, role_in_guild):
         role_removed = False
         while not role_removed:
-            print("processing remove_role_safe - while")
+            print("(remove_role_safe) - while")
             await member_in_guild.remove_roles(role_in_guild)
             await asyncio.sleep(1)
             for role in member_in_guild.roles:
@@ -205,7 +205,7 @@ class Bot:
             await self.wait_until_next_hour()
 
     async def wait_until_weekday(self, target_weekday: int):
-        while datetime.datetime.now().weekday != target_weekday:
+        while datetime.datetime.now().weekday() != target_weekday:
             await self.wait_until_next_day()
 
     async def wait_until_day_of_month(self, target_day_of_month: int):
@@ -314,7 +314,7 @@ class Bot:
         await admin_player.fill_object_from_db()
 
         for old_guilty_player in old_guilty_players:
-            print("send_guilty_message_to_old_guilty_members(): " + old_guilty_player.name + ": " + old_guilty_player.discord_user_object.name)
+            print("(send_guilty_message_to_old_guilty_members): " + old_guilty_player.name + ": " + old_guilty_player.discord_user_object.name)
             await old_guilty_player.discord_user_object.send("**Hurra, deine Schuldwoche ist vorbei!**\n"
                                                              "\n"
                                                              "Du kannst ab jetzt mit `" + self.config.prefix + "schuld ist ...` ein oder mehrere Schuldige für diese Woche festlegen.\n"
@@ -335,7 +335,7 @@ class Bot:
         old_guilty_players = await self.get_old_guilty_players()
 
         for old_guilty_player in old_guilty_players:
-            print("send_reminder_message_to_old_guilty_members(): " + old_guilty_player.name + ": " + old_guilty_player.discord_user_object.name)
+            print("(send_reminder_message_to_old_guilty_members): " + old_guilty_player.name + ": " + old_guilty_player.discord_user_object.name)
             await old_guilty_player.discord_user_object.send("Hier ist eine freundliche Erinnerung, dass du noch einen/die Schuldigen festlegen musst. " + await self.emoji_mention(self.config.guilty_member_guild_id, name="quagganthinking"))
 
     async def send_guilty_message_to_guilty_channel(self):
@@ -354,109 +354,158 @@ class Bot:
         asyncio.create_task(await self.new_week_guilty_event())
 
     async def monday_reminder(self):
-        if not datetime.datetime.now().weekday == 0:
-            await self.wait_until_weekday(0)
-        if not datetime.datetime.now().hour == 19:
-            await self.wait_until_hour(19)
-        if datetime.datetime.now().minute <= 5:
-            now = datetime.datetime.now()
-            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-            if not await self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
-                await self.send_reminder_message_to_old_guilty_members()
+        target_day = 0
+        target_hour = 19
 
+        if not datetime.datetime.now().weekday() == target_day:
+            print("(monday_reminder) not monday, waiting for it.")
+            await self.wait_until_weekday(target_day)
+        print("(monday_reminder) it's monday.")
+        if datetime.datetime.now().hour >= target_hour:
+            print("(monday_reminder) after 7pm. waiting until next week. restart then.")
+            await self.wait_until_next_week()
+        else:
+            if datetime.datetime.now().hour <= (target_hour - 1):
+                print("(monday_reminder) it's 6pm.")
+                await self.wait_until_next_hour()
+                print("(monday_reminder) 7pm.")
+                now = datetime.datetime.now()
+                iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+                print("(monday_reminder) before execution")
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    await self.send_reminder_message_to_old_guilty_members()
+        print("(monday_reminder) after execution")
         asyncio.create_task(await self.monday_reminder())
 
     async def tuesday_reminder(self):
-        if not datetime.datetime.now().weekday == 1:
-            await self.wait_until_weekday(1)
-        if not datetime.datetime.now().hour == 19:
-            await self.wait_until_hour(19)
-        if datetime.datetime.now().minute <= 5:
-            now = datetime.datetime.now()
-            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-            if not await self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
-                await self.send_reminder_message_to_old_guilty_members()
+        target_day = 1
+        target_hour = 19
 
+        if not datetime.datetime.now().weekday() == target_day:
+            print("(tuesday_reminder) not tuesday, waiting for it.")
+            await self.wait_until_weekday(target_day)
+        print("(tuesday_reminder) it's tuesday.")
+        if datetime.datetime.now().hour >= target_hour:
+            print("(tuesday_reminder) after 7pm. waiting until next week. restart then.")
+            await self.wait_until_next_week()
+        else:
+            if datetime.datetime.now().hour <= (target_hour - 1):
+                print("(tuesday_reminder) it's 6pm.")
+                await self.wait_until_next_hour()
+                print("(tuesday_reminder) 7pm.")
+                now = datetime.datetime.now()
+                iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+                print("(tuesday_reminder) before execution")
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    await self.send_reminder_message_to_old_guilty_members()
+        print("(tuesday_reminder) after execution")
         asyncio.create_task(await self.tuesday_reminder())
 
     async def wednesday_reminder(self):
-        if not datetime.datetime.now().weekday == 2:
-            await self.wait_until_weekday(2)
-        if not datetime.datetime.now().hour == 19:
-            await self.wait_until_hour(19)
-        if datetime.datetime.now().minute <= 5:
-            now = datetime.datetime.now()
-            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
-            if not await self.db_connection.isWeekFinalized(iso_date[0], iso_date[1]):
-                await self.send_reminder_message_to_old_guilty_members()
+        target_day = 2
+        target_hour = 19
 
+        if not datetime.datetime.now().weekday() == target_day:
+            print("(wednesday_reminder) not wednesday, waiting for it.")
+            await self.wait_until_weekday(target_day)
+        print("(wednesday_reminder) it's wednesday.")
+        if datetime.datetime.now().hour >= target_hour:
+            print("(wednesday_reminder) after 7pm. waiting until next week. restart then.")
+            await self.wait_until_next_week()
+        else:
+            if datetime.datetime.now().hour <= (target_hour - 1):
+                print("(wednesday_reminder) it's 6pm.")
+                await self.wait_until_next_hour()
+                print("(wednesday_reminder) 7pm.")
+                now = datetime.datetime.now()
+                iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+                print("(wednesday_reminder) before execution")
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    await self.send_reminder_message_to_old_guilty_members()
+        print("(wednesday_reminder) after execution")
         asyncio.create_task(await self.wednesday_reminder())
 
     async def thursday_guilty_event(self):
-        if not datetime.datetime.now().weekday == 3:
-            await self.wait_until_weekday(3)
-        if not datetime.datetime.now().hour == 20:
-            await self.wait_until_hour(20)
-        if datetime.datetime.now().minute <= 5:
-            now = datetime.datetime.now()
-            iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
 
-            if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
-                print("debug: not finalized")
-                if not await self.db_connection.isOneUserAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
-                    print("debug: no user got accepted")
-                    proposed_players = await self.db_connection.getAWeeksGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
-                    if len(proposed_players) == 0:
-                        print("debug: no user proposed")
-                        player_ids = await self.db_connection.getAllPlayersIds(only_active=True)
-                        pprint(player_ids)
-                        random_player_id = player_ids[randint(1, len(player_ids))]['id']
+        target_day = 1
+        target_hour = 19
 
-                        pprint(random_player_id)
-                        random_player = Player.Player(random_player_id)
-                        await random_player.fill_object_from_db()
-                        await self.db_connection.insertGuiltyUser(str(iso_date[0]), str(iso_date[1]), random_player.id, random_player.id)
-                        await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), random_player.id, "Der Schuldige von letzter Woche hat leider geschlafen, jetzt ist " + random_player.name + " schuld.")
-                        await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
-                        await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
-                    else:
-                        print("debug: user proposed, not accepted")
-                        for proposed_player in proposed_players:
-                            await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['guilty_user_id'])
-                            if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id']):
-                                print("debug: user has entered reason, confirming now")
-                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id'])
-                elif not await self.db_connection.isOneReasonAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
-                    print("debug: user accepted, reason not")
-                    guilty_users_data = await self.db_connection.getAWeeksConfirmedGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
-                    for data in guilty_users_data:
-                        if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
-                            print("debug: user entered reason, didnt get confirmed, confirming now")
-                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
-                            break
+        if not datetime.datetime.now().weekday() == target_day:
+            print("(thursday_guilty_event) not tuesday, waiting for it.")
+            await self.wait_until_weekday(target_day)
+        print("(thursday_guilty_event) it's tuesday.")
+        if datetime.datetime.now().hour >= target_hour:
+            print("(thursday_guilty_event) after 7pm. waiting until next week. restart then.")
+            await self.wait_until_next_week()
+        else:
+            if datetime.datetime.now().hour <= (target_hour - 1):
+                print("(thursday_guilty_event) it's 6pm.")
+                await self.wait_until_next_hour()
+                print("(thursday_guilty_event) 7pm.")
+                now = datetime.datetime.now()
+                iso_date = datetime.date(now.year, now.month, now.day).isocalendar()
+                print("(thursday_guilty_event) before execution")
+
+                if not await self.db_connection.isWeekFinalized(str(iso_date[0]), str(iso_date[1])):
+                    print("(thursday_guilty_event) not finalized")
+                    if not await self.db_connection.isOneUserAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
+                        print("(thursday_guilty_event) no user got accepted")
+                        proposed_players = await self.db_connection.getAWeeksGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
+                        if len(proposed_players) == 0:
+                            print("(thursday_guilty_event) no user proposed")
+                            player_ids = await self.db_connection.getAllPlayersIds(only_active=True)
+                            pprint(player_ids)
+                            random_player_id = player_ids[randint(1, len(player_ids))]['id']
+
+                            pprint(random_player_id)
+                            random_player = Player.Player(random_player_id)
+                            await random_player.fill_object_from_db()
+                            await self.db_connection.insertGuiltyUser(str(iso_date[0]), str(iso_date[1]), random_player.id, random_player.id)
+                            await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), random_player.id, "Der Schuldige von letzter Woche hat leider geschlafen, jetzt ist " + random_player.name + " schuld.")
+                            await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
+                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), random_player.id)
                         else:
-                            print("debug: no reason entered, creating and confirming it now")
-                            if await self.db_connection.hasUserEnteredRejectedReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
-                                await self.db_connection.alterReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen neuen Grund anzugeben :(")
+                            print("(thursday_guilty_event) user proposed, not accepted")
+                            for proposed_player in proposed_players:
+                                await self.db_connection.alterConfirmationToTrueForUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['guilty_user_id'])
+                                if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id']):
+                                    print("(thursday_guilty_event) user has entered reason, confirming now")
+                                await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), proposed_player['owner_user_id'])
+                    elif not await self.db_connection.isOneReasonAcceptedInWeek(str(iso_date[0]), str(iso_date[1])):
+                        print("(thursday_guilty_event) user accepted, reason not")
+                        guilty_users_data = await self.db_connection.getAWeeksConfirmedGuiltyUsers(str(iso_date[0]), str(iso_date[1]))
+                        for data in guilty_users_data:
+                            if await self.db_connection.hasUserEnteredReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
+                                print("(thursday_guilty_event) user entered reason, didnt get confirmed, confirming now")
+                                await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
+                                break
                             else:
-                                await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
-                            await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
-                print("debug: finalizing week")
-                await self.db_connection.insertFinalizedWeek(str(iso_date[0]), str(iso_date[1]))
-                await self.refresh_guilty_members()
-                await self.send_guilty_message_to_guilty_channel()
+                                print("(thursday_guilty_event) no reason entered, creating and confirming it now")
+                                if await self.db_connection.hasUserEnteredRejectedReasonInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id']):
+                                    await self.db_connection.alterReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen neuen Grund anzugeben :(")
+                                else:
+                                    await self.db_connection.insertGuiltyReason(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'], "Ich habe vergessen, einen Grund anzugeben :(")
+                                await self.db_connection.alterConfirmationToTrueForReasonFromUserInWeek(str(iso_date[0]), str(iso_date[1]), data['owner_user_id'])
+                    print("(thursday_guilty_event) finalizing week")
+                    await self.db_connection.insertFinalizedWeek(str(iso_date[0]), str(iso_date[1]))
+                    await self.refresh_guilty_members()
+                    await self.send_guilty_message_to_guilty_channel()
 
+        print("(thursday_guilty_event) after execution")
         asyncio.create_task(await self.thursday_guilty_event())
 
 
     async def enable_timers(self):
-        print("debug: create timers")
-        asyncio.create_task(self.new_week_guilty_event())
-        asyncio.create_task(self.monday_reminder())
-        asyncio.create_task(self.tuesday_reminder())
-        asyncio.create_task(self.wednesday_reminder())
-        asyncio.create_task(self.thursday_guilty_event())
-        print("debug: timers created")
+        if self.config.disable_timers == 0:
+            print("(enable_timers) create timers")
+            asyncio.create_task(self.new_week_guilty_event())
+            asyncio.create_task(self.monday_reminder())
+            asyncio.create_task(self.tuesday_reminder())
+            asyncio.create_task(self.wednesday_reminder())
+            asyncio.create_task(self.thursday_guilty_event())
+            print("(enable_timers) timers created")
+        else:
+            print("(enable_timers) not running timers, disabled in config file.")
 
     async def is_discord_id_in_db(self, discord_user_id):
         return await self.db_connection.getPlayerData(discord_user_id=discord_user_id)
@@ -739,8 +788,8 @@ class Bot:
 
                     admin_user = self.bot.get_user(self.config.admin_id)
                     for member in not_added_members:
-                        if self.config.support_skip_all == 0:
-                            if self.config.support_skip_player_missing_in_db == 0:
+                        if self.config.skip_support_all == 0:
+                            if self.config.skip_support_player_missing_in_db == 0:
                                 await admin_user.send(embed=(await self.get_player_missing_in_db_embed(context, member)))
                             else:
                                 pass

@@ -32,5 +32,7 @@ class Config:
     ping_pong_loop = 0  # if set true, the bot will trigger itself with ping and pong commands
     airhorn_stay_afterwards = 0  # if set true, the bot will stay in voice after the airhorn was played
 
-    support_skip_all = 0  # if set true, the bot will not send any support messages to bot-admin
-    support_skip_player_missing_in_db = 0  # if set true, the bot will not send support messages regarding missing players in db
+    skip_support_all = 0  # if set true, the bot will not send any support messages to bot-admin
+    skip_support_player_missing_in_db = 0  # if set true, the bot will not send support messages regarding missing players in db
+
+    disable_timers = 0  # if set true, the bot will not run
