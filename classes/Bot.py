@@ -366,6 +366,8 @@ class Bot:
             await self.wait_until_next_week()
         else:
             if datetime.datetime.now().hour <= (target_hour - 1):
+                if datetime.datetime.now().hour < (target_hour - 1):
+                    await self.wait_until_hour(target_hour - 1)
                 print("(monday_reminder) it's 6pm.")
                 await self.wait_until_next_hour()
                 print("(monday_reminder) 7pm.")
@@ -390,6 +392,8 @@ class Bot:
             await self.wait_until_next_week()
         else:
             if datetime.datetime.now().hour <= (target_hour - 1):
+                if datetime.datetime.now().hour < (target_hour - 1):
+                    await self.wait_until_hour(target_hour - 1)
                 print("(tuesday_reminder) it's 6pm.")
                 await self.wait_until_next_hour()
                 print("(tuesday_reminder) 7pm.")
@@ -414,6 +418,8 @@ class Bot:
             await self.wait_until_next_week()
         else:
             if datetime.datetime.now().hour <= (target_hour - 1):
+                if datetime.datetime.now().hour < (target_hour - 1):
+                    await self.wait_until_hour(target_hour - 1)
                 print("(wednesday_reminder) it's 6pm.")
                 await self.wait_until_next_hour()
                 print("(wednesday_reminder) 7pm.")
@@ -439,6 +445,8 @@ class Bot:
             await self.wait_until_next_week()
         else:
             if datetime.datetime.now().hour <= (target_hour - 1):
+                if datetime.datetime.now().hour < (target_hour - 1):
+                    await self.wait_until_hour(target_hour - 1)
                 print("(thursday_guilty_event) it's 6pm.")
                 await self.wait_until_next_hour()
                 print("(thursday_guilty_event) 7pm.")
@@ -950,7 +958,7 @@ class Bot:
 
         @edit.command()
         async def add(context, user_mention, username, description, active="active"):
-            """Add a new user to the guilty game."""
+            """Add a new user to the guilty game. (Can only be used by Leaders of [iQ].)"""
             user_is_leader = False
             if self.config.iq_leaders_id.__contains__(context.message.author.id):
                 user_is_leader = True
