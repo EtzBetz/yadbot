@@ -433,13 +433,13 @@ class Bot:
 
     async def thursday_guilty_event(self):
 
-        target_day = 1
-        target_hour = 19
+        target_day = 3
+        target_hour = 20
 
         if not datetime.datetime.now().weekday() == target_day:
-            print("(thursday_guilty_event) not tuesday, waiting for it.")
+            print("(thursday_guilty_event) not thursday, waiting for it.")
             await self.wait_until_weekday(target_day)
-        print("(thursday_guilty_event) it's tuesday.")
+        print("(thursday_guilty_event) it's thursday.")
         if datetime.datetime.now().hour >= target_hour:
             print("(thursday_guilty_event) after 7pm. waiting until next week. restart then.")
             await self.wait_until_next_week()
