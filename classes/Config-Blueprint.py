@@ -30,9 +30,10 @@ class Config:
     }
 
     ping_pong_loop = 0  # if set true, the bot will trigger itself with ping and pong commands
+    inpersonate_admin = 0 # if bot handles any message that is handled by admin, it will delete it and re-send it as bot
     airhorn_stay_afterwards = 0  # if set true, the bot will stay in voice after the airhorn was played
 
     skip_support_all = 0  # if set true, the bot will not send any support messages to bot-admin
     skip_support_player_missing_in_db = 0  # if set true, the bot will not send support messages regarding missing players in db
 
-    disable_timers = 0  # if set true, the bot will not run
+    disable_timers = 1  # if set true, the bot will not run

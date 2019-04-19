@@ -592,6 +592,13 @@ class Bot:
                 if message.author.id != self.config.bot_id:
                     await message.channel.send("***triggered***")
 
+            if self.config.inpersonate_admin == 1:
+                if self.is_admin(message.author.id):
+                    # self.message_to_send = message
+                    await message.delete()
+                    await message.channel.send(message.content)
+
+
         @self.bot.command()
         async def join(context):
             """Bot will join your voice channel."""
