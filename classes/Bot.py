@@ -31,7 +31,6 @@ class Bot:
 
     last_messages = [None] * 4
 
-
     async def print_guilds(self):
         print("Bot is ready. Running on Guilds: \n")
         for guild in self.bot.guilds:
@@ -550,6 +549,21 @@ class Bot:
             raise Exception("This class is a singleton!")
         else:
             Bot.__instance = self
+
+        @self.bot.event  # TODO: complete this feature
+        async def on_command_error(self, context, exception):
+            if type(exception) is commands.CommandInvokeError:
+                print("Command invoke error")
+                print(exception.original)
+                print(type(exception.original))
+                if type(exception.original) is discord.Forbidden:
+                    print("Can't do that yo")
+                    return
+            cog = context.cog
+            if cog:
+                attr = '_{0.__class__.__name__}__error'.format(cog)
+                if hasattr(cog, attr):
+                    return
 
         @self.bot.event
         async def on_ready():

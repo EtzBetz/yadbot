@@ -11,7 +11,7 @@ class Player:
     description = None
     active = None
 
-    def __init__(self, id=None, name=None, discord_user_id=None, discord_user_object=None, description=None) -> None:
+    def __init__(self, id=None, name=None, discord_user_id=None, discord_user_object=None, description=None):
         super().__init__()
         if id is None and name is None and discord_user_id is None and discord_user_object is None:
             raise ValueError("One unique attribute needs to be given to create a player object.")
