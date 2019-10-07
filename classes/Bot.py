@@ -31,9 +31,12 @@ class Bot:
 
     last_messages = [None] * 4
 
+    async def get_timestamp(self):
+        now = datetime.datetime.now()
+        return "[" + str(now.day) + "." + str(now.month) + "." + str(now.year) + ", " + str(now.hour) + ":" + str(now.minute) + "]"
 
     async def print_guilds(self):
-        print("Bot is ready. Running on Guilds: \n")
+        print(self.get_timestamp() + " Bot is ready. Running on Guilds: \n")
         for guild in self.bot.guilds:
             print("  - %s (%s)" % (guild.name, guild.id))
         print("\n-----------------------------------------------")
