@@ -1268,5 +1268,9 @@ class Bot:
             else:
                 await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader können diesen Befehl benutzen!"))
 
+        @self.bot.command()
+        async def fastbuild(context):
+            pass
+
         # TODO: Add logout and/or closing of connections to discord, db and other stuff. Somehow end coroutines?
         self.bot.run(self.config.token)
