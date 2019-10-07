@@ -1270,3 +1270,22 @@ class Bot:
 
         # TODO: Add logout and/or closing of connections to discord, db and other stuff. Somehow end coroutines?
         self.bot.run(self.config.token)
+
+        # TODO: test this stuff, never tested on implementation
+        @self.bot.command()
+        async def regionalindicator(context, original):
+            valid_letters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
+            converted_text = ""
+            for char in original:
+                char = char.lower()
+                valid = False
+                for letter in valid_letters:
+                    if letter == char:
+                        valid = True
+                        break
+                if valid:
+                    converted_text += ":regional_indicator_" + char + ": "
+                else:
+                    if char == " ":
+                        converted_text += ":black_small_square: "
+            await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description=converted_text))
