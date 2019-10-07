@@ -1268,9 +1268,6 @@ class Bot:
             else:
                 await context.message.channel.send(embed=discord.Embed(color=discord.Color.red(), description="Nur die [iQ]-Leader können diesen Befehl benutzen!"))
 
-        # TODO: Add logout and/or closing of connections to discord, db and other stuff. Somehow end coroutines?
-        self.bot.run(self.config.token)
-
         # TODO: test this stuff, never tested on implementation
         @self.bot.command()
         async def regionalindicator(context, original):
@@ -1288,4 +1285,14 @@ class Bot:
                 else:
                     if char == " ":
                         converted_text += ":black_small_square: "
-            await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description=converted_text))
+            pre_string = "```diff\n"
+            post_string = "```"
+            await context.message.channel.send(embed=discord.Embed(color=discord.Color.green(), description=pre_string + converted_text + post_string))
+
+
+
+
+
+
+        # TODO: Add logout and/or closing of connections to discord, db and other stuff. Somehow end coroutines?
+        self.bot.run(self.config.token)
