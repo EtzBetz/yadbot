@@ -68,7 +68,7 @@ class YadBot(discord.ext.commands.Bot):
         posting_title = soup.find_all('h2')
         posting_text = posting_title[0].find_next_sibling('div')
         if self.website_text != posting_text.get_text():
-            if self.website_text == "":
+            if not self.website_text == "":
                 self.website_text = posting_text.get_text()
                 await self.send_website_changes_message(self.website_text)
             else:
