@@ -1,39 +1,19 @@
 class Config:
 
-    version_number = "1.4.4"  # version number of the bot you just see, don't update on your own
+    version_number = "2.0.1"  # version number of the bot you just see, don't update on your own
 
     token = ""  # token of the bot user
     prefix = "!"  # prefix for the bot to react to
-    db_credentials = {  # credentials for the database
-        "user": "",
-        "password": "",
-        "database": "",
-        "host": "",
-        "port": ""
-    }
-
-    new_user_guild_id = 133333333333333337  # the server id on which it will assign new users a specific role
-    new_user_role_id = 133333333333333337  # the role id which will be assigned to new users on the specified server
-
-    guilty_member_guild_id = 133333333333333337  # the server id of iQ, to get the latest bad member
-    guilty_commands_channel_id = 133333333333333337  # channel id of the channel to write commands into
-    guilty_news_channel_id = 133333333333333337  # channel id of the channel where guilty news are announced to
-    guilty_member_role_id = 133333333333333337  # the role id for the current weeks faulty member
-    old_guilty_member_role_id = 133333333333333337  # the role id for the last weeks faulty member
 
     bot_id = 133333333333333337  # userId of the bot
     admin_id = 133333333333333337  # userId of the bot admin
-    iq_leaders_id = {  # userId of the iq leaders (usage in !schuld confirm)
-        133333333333333337,  # person1
-        # 133333333333333337,  # person2
-        # admin_id,
-    }
 
     ping_pong_loop = 0  # if set true, the bot will trigger itself with ping and pong commands
-    inpersonate_admin = 0 # if bot handles any message that is handled by admin, it will delete it and re-send it as bot
-    airhorn_stay_afterwards = 0  # if set true, the bot will stay in voice after the airhorn was played
-
-    skip_support_all = 0  # if set true, the bot will not send any support messages to bot-admin
-    skip_support_player_missing_in_db = 0  # if set true, the bot will not send support messages regarding missing players in db
 
     disable_timers = 1  # if set true, the bot will not run
+
+    website_check_interval_seconds = 300  # number of seconds the bot should wait for re-fetching content of the fetched website
+    website_check_url = "https://www.google.de"  # the website to check
+    client_headers = {  # header that the bot will be using
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
+    }
