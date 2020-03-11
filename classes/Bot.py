@@ -37,7 +37,7 @@ class YadBot(discord.ext.commands.Bot):
         game = discord.Game(name=f"Version {self.config.version_number}")
         await self.change_presence(status=discord.Status.online, activity=game)
 
-        print(f"I see {len(self.guilds)} guilds, and {len(self.users)} members:")
+        print(f"I see {len(self.guilds)} guilds and {len(self.users)} members:")
         for guild in self.guilds:
             print(f"  - {guild.name} ({guild.id})")
         print("---------------------------------------------------------")
