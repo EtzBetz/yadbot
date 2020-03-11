@@ -65,8 +65,7 @@ class YadBot(discord.ext.commands.Bot):
         # parse the downloaded homepage
         soup = BeautifulSoup(text.decode('utf-8'), "lxml")
 
-        posting_title = soup.find_all('h2')
-        posting_text = posting_title[0].find_next_sibling('div')
+        posting_text = soup.find(id='content')
         if self.website_text != posting_text.get_text():
             if not self.website_text == "":
                 self.website_text = posting_text.get_text()
