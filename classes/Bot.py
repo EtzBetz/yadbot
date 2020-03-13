@@ -65,9 +65,10 @@ class YadBot(discord.ext.commands.Bot):
         # parse the downloaded homepage
         soup = BeautifulSoup(text.decode('utf-8'), "lxml")
 
-        posting_text = soup.find(id='content')
+        posting_container = soup.find(id='content')
+        posting_text = posting_container.div.div
         if self.website_text != posting_text.get_text():
-            if not self.website_text == "":
+            if self.website_text == "":
                 self.website_text = posting_text.get_text()
                 await self.send_website_changes_message(self.website_text)
             else:
@@ -91,13 +92,43 @@ class YadBot(discord.ext.commands.Bot):
 
         await admin_user.send(embed=await self.get_message_change_embed(message_text))
 
+    async def parse_message_text(self, message_text):
+        parsed_texts = []
+        message_text = message_text[1:]
+        is_text_fully_parsed = False
+        while not is_text_fully_parsed:
+            divider_start_index = message_text.find("====")
+            if divider_start_index == -1:
+                if not len(message_text) == 0:
+                    parsed_texts.append(message_text)
+                is_text_fully_parsed = True
+            else:
+                if not divider_start_index == 0:
+                    parsed_texts.append(message_text[:divider_start_index-1])  # TODO: probably -2 to also cut linebreak, test
+                    # print("message: \n" + message_text[:divider_start_index-1])
+                divider_end_index = divider_start_index + 3
+                divider_end_index_found = False
+                while not divider_end_index_found:
+                    if message_text[divider_end_index + 1] == "=":
+                        divider_end_index += 1
+                    else:
+                        divider_end_index_found = True
+                message_text = message_text[divider_end_index+2:]  # TODO: probably +2 to also cut last character and linebreak, test
+        return parsed_texts
+
+
+
     async def get_message_change_embed(self, message_text):
+        parsed_texts = await self.parse_message_text(message_text)
 
         embed = discord.Embed(
-            title="Änderungen auf dem schwarzen Brett!",
-            description=message_text,
-            color=0xFFFF00
+            title="Änderungen auf dem Schwarzen Brett!",
+            color=0x0096d1,
+            url=self.config.website_check_url
         )
-        embed.set_footer(text="Alle Angaben ohne Gewähr!")
+        embed.set_footer(text="Alle Angaben ohne Gewähr!  |  Bug gefunden? Melde dich bei @EtzBetz#0001.")
+
+        for i, parsed_text in enumerate(parsed_texts):
+            embed.add_field(name=str(i+1) + ". Eintrag", value=parsed_text, inline=False)
 
         return embed
