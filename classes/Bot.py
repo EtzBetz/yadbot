@@ -69,10 +69,8 @@ class YadBot(discord.ext.commands.Bot):
         posting_text = posting_container.div.div
         if self.website_text != posting_text.get_text():
             if not self.website_text == "":
-                self.website_text = posting_text.get_text()
                 await self.send_website_changes_message(self.website_text)
-            else:
-                self.website_text = posting_text.get_text()
+            self.website_text = posting_text.get_text()
 
 
     async def enable_timers(self):
