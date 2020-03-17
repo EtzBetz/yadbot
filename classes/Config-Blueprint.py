@@ -1,6 +1,6 @@
 class Config:
 
-    version_number = "2.0.3"  # version number of the bot you just see, don't update on your own
+    version_number = "2.1.0"  # version number of the bot you just see, don't update on your own
 
     token = ""  # token of the bot user
     prefix = "!"  # prefix for the bot to react to
@@ -17,3 +17,7 @@ class Config:
     client_headers = {  # header that the bot will be using
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'
     }
+
+    cog_lightshot_servers = [  # servers in this list can use the lightshot cog commands
+        133333333333333337
+    ]

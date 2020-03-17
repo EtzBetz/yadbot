@@ -7,10 +7,8 @@ import aiohttp
 from pprint import pprint
 from random import randint
 from bs4 import BeautifulSoup
-
 from discord.ext import commands
-
-from classes import Config
+from classes import Config, LightShotCog
 
 
 class YadBot(discord.ext.commands.Bot):
@@ -41,6 +39,8 @@ class YadBot(discord.ext.commands.Bot):
         for guild in self.guilds:
             print(f"  - {guild.name} ({guild.id})")
         print("---------------------------------------------------------")
+
+        self.add_cog(LightShotCog.LightShotCog(self))
 
         await self.enable_timers()
 
