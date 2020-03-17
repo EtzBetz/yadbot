@@ -5,6 +5,7 @@ from discord.ext import commands
 from bs4 import BeautifulSoup
 import random
 import string
+import time
 
 from classes import Config
 
@@ -19,7 +20,7 @@ class LightShotCog(commands.Cog):
         pass
 
     @commands.command()
-    async def image(self, context, amount=1):
+    async def image(self, context, amount=1, delay=1):
         """Get random image from LightShot"""
         if isinstance(context.message.channel, discord.abc.GuildChannel) and context.message.channel.guild.id in self.allowed_servers:
             for i in range(amount):
@@ -51,7 +52,7 @@ class LightShotCog(commands.Cog):
                     else:
                         validImageFound = True
                         await botMessage.edit(content="Probably User-Agent was wrong or image wasn't found.")
-
+                time.sleep(delay)
         else:
             await context.channel.send("Command is not whitelisted here.")
 
