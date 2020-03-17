@@ -20,7 +20,7 @@ class LightShotCog(commands.Cog):
         pass
 
     @commands.command()
-    async def image(self, context, amount=1, delay=1):
+    async def image(self, context, amount=1, delay=0):
         """Get random image from LightShot"""
         if isinstance(context.message.channel, discord.abc.GuildChannel) and context.message.channel.guild.id in self.allowed_servers:
             for i in range(amount):
