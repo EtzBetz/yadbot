@@ -23,36 +23,39 @@ class LightShotCog(commands.Cog):
     async def image(self, context, amount=1, delay=0):
         """Get random image from LightShot"""
         if isinstance(context.message.channel, discord.abc.GuildChannel) and context.message.channel.guild.id in self.allowed_servers:
-            for i in range(amount):
-                botMessage = await context.channel.send("Getting an image for you...")
+            if amount <= 500:
+                for i in range(amount):
+                    botMessage = await context.channel.send("Getting an image for you...")
 
-                validImageFound = False
+                    validImageFound = False
 
-                while not validImageFound:
+                    while not validImageFound:
 
-                    fileName = await self.generate_image_id(6)
-                    url = await self.generate_image_link(fileName)
+                        fileName = await self.generate_image_id(6)
+                        url = await self.generate_image_link(fileName)
 
-                    async with aiohttp.ClientSession(headers=Config.Config.client_headers) as cs:
-                        async with cs.get(url) as response:
-                            website = await response.read()
+                        async with aiohttp.ClientSession(headers=Config.Config.client_headers) as cs:
+                            async with cs.get(url) as response:
+                                website = await response.read()
 
-                    # parse the downloaded homepage
-                    soup = BeautifulSoup(website.decode('utf-8'), "lxml")
+                        # parse the downloaded homepage
+                        soup = BeautifulSoup(website.decode('utf-8'), "lxml")
 
-                    imgElement = soup.find('img', id='screenshot-image')
+                        imgElement = soup.find('img', id='screenshot-image')
 
-                    if imgElement is not None:
-                        imgUrl = soup.find('img', id='screenshot-image')['src']
-                        if '0_173a7b_211be8ff' not in imgUrl and imgUrl is not None:
-                            validImageFound = True
-                            await botMessage.edit(content=imgUrl)
+                        if imgElement is not None:
+                            imgUrl = soup.find('img', id='screenshot-image')['src']
+                            if '0_173a7b_211be8ff' not in imgUrl and imgUrl is not None:
+                                validImageFound = True
+                                await botMessage.edit(content=imgUrl)
+                            else:
+                                await botMessage.edit(content="Got an invalid image.")
                         else:
-                            await botMessage.edit(content="Got an invalid image.")
-                    else:
-                        validImageFound = True
-                        await botMessage.edit(content="Probably User-Agent was wrong or image wasn't found.")
-                time.sleep(delay)
+                            validImageFound = True
+                            await botMessage.edit(content="Probably User-Agent was wrong or image wasn't found.")
+                    time.sleep(delay)
+            else:
+                await context.channel.send("You can request max. 500 pictures!")
         else:
             await context.channel.send("Command is not whitelisted here.")
 
