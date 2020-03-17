@@ -50,13 +50,13 @@ class YadBot(discord.ext.commands.Bot):
         else:
             await super(YadBot, self).on_command_error(context, exception)
 
-    async def check_website_timer(self):
-        await self.check_website()
+    async def timer_website_check(self):
+        await self.website_check()
         await asyncio.sleep(self.config.website_check_interval_seconds)
-        asyncio.create_task(self.check_website())
+        asyncio.create_task(self.timer_website_check())
 
-    async def check_website(self):
-
+    async def website_check(self):
+        print("running website check task")
         # download the website
         async with aiohttp.ClientSession() as cs:
             async with cs.get(self.config.website_check_url) as response:
@@ -76,7 +76,7 @@ class YadBot(discord.ext.commands.Bot):
     async def enable_timers(self):
         if self.config.disable_timers == 0:
             print("(enable_timers) create timers")
-            asyncio.create_task(self.check_website_timer())
+            asyncio.create_task(self.timer_website_check())
             print("(enable_timers) timers created")
         else:
             print("(enable_timers) not running timers, disabled in config file.")
