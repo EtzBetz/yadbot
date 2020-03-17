@@ -51,7 +51,8 @@ class LightShotCog(commands.Cog):
                             else:
                                 await botMessage.edit(content="Got an invalid image, trying again...")
                         else:
-                            await botMessage.edit(content="Oops. Something went wrong. Trying again...")
+                            validImageFound = True
+                            await botMessage.edit(content="Oops. Something went wrong. (" + url + ")")
                     time.sleep(delay)
             else:
                 await context.channel.send("You can request max. 500 pictures!")
