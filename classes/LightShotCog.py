@@ -25,7 +25,7 @@ class LightShotCog(commands.Cog):
         if isinstance(context.message.channel, discord.abc.GuildChannel) and context.message.channel.guild.id in self.allowed_servers:
             if amount <= 500:
                 for i in range(amount):
-                    botMessage = await context.channel.send("Getting an image for you...")
+                    botMessage = await context.channel.send("Getting a new image for you...")
 
                     validImageFound = False
 
@@ -49,15 +49,14 @@ class LightShotCog(commands.Cog):
                                 validImageFound = True
                                 await botMessage.edit(content=imgUrl)
                             else:
-                                await botMessage.edit(content="Got an invalid image, trying again...")
+                                await botMessage.edit(content="The image was invalid or got removed, getting other image...")
                         else:
-                            validImageFound = True
-                            await botMessage.edit(content="Oops. Something went wrong. (" + url + ")")
+                            await botMessage.edit(content="Got redirected, getting other image...")
                     time.sleep(delay)
             else:
                 await context.channel.send("You can request max. 500 pictures!")
         else:
-            await context.channel.send("Command is not whitelisted here.")
+            await context.channel.send("This command is not whitelisted here.")
 
     # - Generates random string
     async def generate_image_id(self, size):
