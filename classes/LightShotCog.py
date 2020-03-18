@@ -20,10 +20,10 @@ class LightShotCog(commands.Cog):
         pass
 
     @commands.command()
-    async def image(self, context, amount=1, delay_in_seconds=0):
+    async def image(self, context, amount=1, delay_in_seconds=1):
         """Get random image from LightShot"""
         if isinstance(context.message.channel, discord.abc.GuildChannel) and context.message.channel.guild.id in self.allowed_servers:
-            if amount <= 500:
+            if amount <= 500 and delay_in_seconds >= 1:
                 for i in range(amount):
                     botMessage = await context.channel.send("Getting a new image for you...")
 
@@ -54,7 +54,7 @@ class LightShotCog(commands.Cog):
                             await botMessage.edit(content="Got redirected, getting other image...")
                     time.sleep(delay_in_seconds)
             else:
-                await context.channel.send("You can request max. 500 pictures!")
+                await context.channel.send("You can request maximum 500 pictures and set a minimum delay of one second!")
         else:
             await context.channel.send("This command is not whitelisted here.")
 
