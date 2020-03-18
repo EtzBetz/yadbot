@@ -21,6 +21,7 @@ class LightShotCog(commands.Cog):
         self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849247851347984))  # account emoji
         self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849247847546911))  # address emoji
         self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849495617405049))  # trash emoji
+        self.ordered_links_history = []
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, context):
@@ -29,10 +30,17 @@ class LightShotCog(commands.Cog):
                 if context.event_type == "REACTION_ADD":
                     spam_channel = self.bot.get_channel(id=689541755560787996)
                     if spam_channel is not None:
-                        original_message = await spam_channel.fetch_message(context.message_id)
+                        original_message = None
+                        try:
+                            original_message = await spam_channel.fetch_message(context.message_id)
+                        except discord.NotFound as e:
+                            pass
                         if original_message is not None:
                             if context.emoji.name == "trash":
-                                await original_message.delete()
+                                try:
+                                    await original_message.delete()
+                                except discord.NotFound as e:
+                                    pass
                             else:
                                 await original_message.clear_reactions()
                                 target_channel = None
@@ -47,7 +55,21 @@ class LightShotCog(commands.Cog):
                                 elif context.emoji.name == "address":
                                     target_channel = self.bot.get_channel(id=689591788708560966)
                                 if target_channel is not None:
-                                    await target_channel.send(original_message.content)
+                                    is_link_ordered_already = await self.history_handler(original_message.content)
+                                    if not is_link_ordered_already:
+                                        await target_channel.send(original_message.content)
+
+    async def history_handler(self, link):
+        if link in self.ordered_links_history:
+            return true
+        else:
+            await self.add_link_to_history_remove_old(link)
+            return false
+
+    async def add_link_to_history_remove_old(self, link):
+        self.ordered_links_history.append(link)
+        while len(self.ordered_links_history) > 100:
+            self.ordered_links_history.pop(0)
 
     @commands.command()
     async def image(self, context, amount=1, delay_in_seconds=1):
