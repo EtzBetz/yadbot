@@ -30,6 +30,26 @@ class Config:
         }
     ]
 
+    cog_lightshot_emojis = {
+        "entertainment_emoji_id": 133333333333333337,    # which emoji to use to sort entertainment images
+        "nsfw_emoji_id": 133333333333333337,             # which emoji to use to sort nsfw images
+        "money_emoji_id": 133333333333333337,            # which emoji to use to sort money images
+        "account_emoji_id": 133333333333333337,          # which emoji to use to sort account images
+        "address_emoji_id": 133333333333333337,          # which emoji to use to sort address images
+
+        "trash_emoji_id": 133333333333333337,            # which emoji to use for the delete reaction
+    }
+
     cog_lightshot_servers = [  # servers in this list can use the lightshot cog commands
-        133333333333333337
+        {
+            "server_id": 133333333333333337,                 # one individual server that the commands are allowed on
+
+            "reaction_handler": True,                        # if true the bot adds reactions to images and moves the images to following channels on reaction
+
+            "entertainment_channel_id": 133333333333333337,  # channel on this server to which to move the entertaining images to
+            "nsfw_channel_id": 133333333333333337,           # channel on this server to which to move the nsfw images to
+            "money_channel_id": 133333333333333337,          # channel on this server to which to move the money images to
+            "account_channel_id": 133333333333333337,        # channel on this server to which to move the account images to
+            "address_channel_id": 133333333333333337,        # channel on this server to which to move the address images to
+        }
     ]
