@@ -21,12 +21,6 @@ class LightShotCog(commands.Cog):
         self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=self.bot.config.cog_lightshot_emojis["account_emoji_id"]))        # account emoji
         self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=self.bot.config.cog_lightshot_emojis["address_emoji_id"]))        # address emoji
         self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=self.bot.config.cog_lightshot_emojis["trash_emoji_id"]))          # trash emoji
-        # self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849247914262768))  # entertainment emoji
-        # self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849247935496265))  # nsfw emoji
-        # self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849247821987872))  # money emoji
-        # self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849247851347984))  # account emoji
-        # self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849247847546911))  # address emoji
-        # self.reaction_emojis.append(discord.utils.get(self.bot.emojis, id=689849495617405049))  # trash emoji
         self.ordered_links_history = []
 
     @commands.Cog.listener()
@@ -49,18 +43,22 @@ class LightShotCog(commands.Cog):
                                 except discord.NotFound:
                                     pass
                             else:
-                                await original_message.clear_reactions()
                                 target_channel = None
                                 if context.emoji.name == "entertainment":
                                     target_channel = self.bot.get_channel(id=server_data["entertainment_channel_id"])
+                                    await original_message.clear_reactions()
                                 elif context.emoji.name == "nsfw":
                                     target_channel = self.bot.get_channel(id=server_data["nsfw_channel_id"])
+                                    await original_message.clear_reactions()
                                 elif context.emoji.name == "money":
                                     target_channel = self.bot.get_channel(id=server_data["money_channel_id"])
+                                    await original_message.clear_reactions()
                                 elif context.emoji.name == "account":
                                     target_channel = self.bot.get_channel(id=server_data["account_channel_id"])
+                                    await original_message.clear_reactions()
                                 elif context.emoji.name == "address":
                                     target_channel = self.bot.get_channel(id=server_data["address_channel_id"])
+                                    await original_message.clear_reactions()
                                 if target_channel is not None:
                                     is_link_ordered_already = await self.history_handler(original_message.content)
                                     if not is_link_ordered_already:
