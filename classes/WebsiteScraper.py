@@ -34,13 +34,14 @@ class WebsiteScraper:
             asyncio.create_task(self.timer())
 
     async def timer_occurrence_handler(self):
-        website_soup = await self.request_website()
+        website_soup = await self.request_website(self.url)
         await self.parse_website_content(website_soup)
 
-    async def request_website(self):
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self.url) as response:
+    async def request_website(self, url):
+        async with aiohttp.ClientSession(headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'}) as session:
+            async with session.get(url) as response:
                 website_content = await response.read()
+                # print(str(response.status) + ": " + str(response.url))
 
         return BeautifulSoup(website_content.decode('utf-8'), "lxml")
 
