@@ -30,6 +30,18 @@ class Config:
         }
     ]
 
+    scraper_pastebin_check_interval = 10  # number of seconds the bot should wait for re-fetching content of a fetched website
+    scraper_pastebin_url = "https://pastebin.com/archive"  # the website to check
+    scraper_pastebin_dm_users = [
+        133333333333333337
+    ]
+    scraper_pastebin_servers = [
+        {
+            "server_id": 133333333333333337,
+            "channel_id": 133333333333333337
+        }
+    ]
+
     cog_lightshot_emojis = {
         "entertainment_emoji_id": 133333333333333337,    # which emoji to use to sort entertainment images
         "nsfw_emoji_id": 133333333333333337,             # which emoji to use to sort nsfw images
