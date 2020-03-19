@@ -50,11 +50,11 @@ class WebsiteScraper:
 
     async def send_embed_messages(self):
         embed = await self.get_embed()
-        for guild_data in self.bot.config.scraper_black_board_servers:
+        for guild_data in self.servers:
             guild = discord.utils.get(self.bot.guilds, id=guild_data["server_id"])
             channel = discord.utils.get(guild.channels, id=guild_data["channel_id"])
             await channel.send(embed=embed)
-        for user_id in self.bot.config.scraper_black_board_dm_users:
+        for user_id in self.direct_message_user_ids:
             user = discord.utils.get(self.bot.users, id=user_id)
             await user.send(embed=embed)
 
