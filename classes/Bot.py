@@ -8,7 +8,7 @@ from pprint import pprint
 from random import randint
 from bs4 import BeautifulSoup
 from discord.ext import commands
-from classes import Config, LightShotCog, ScraperBlackBoard, ScraperPastebin
+from classes import Config, LightShotCog
 
 
 class YadBot(discord.ext.commands.Bot):
@@ -24,9 +24,6 @@ class YadBot(discord.ext.commands.Bot):
         self.config = config
         self.token = self.config.token
         self.uptime = datetime.datetime.utcnow()
-
-        self.scraper_black_board = None
-        self.scraper_pastebin = None
 
     async def on_command(self, ctx):
         pass
@@ -44,11 +41,6 @@ class YadBot(discord.ext.commands.Bot):
         print("---------------------------------------------------------")
 
         self.add_cog(LightShotCog.LightShotCog(self))
-
-        self.scraper_black_board = ScraperBlackBoard.ScraperBlackBoard(self)
-        self.scraper_pastebin = ScraperPastebin.ScraperPastebin(self)
-        asyncio.create_task(self.scraper_black_board.timer())
-        asyncio.create_task(self.scraper_pastebin.timer())
 
         # await self.enable_timers()
 
